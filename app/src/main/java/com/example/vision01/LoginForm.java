@@ -16,6 +16,14 @@ public class LoginForm extends AppCompatActivity {
         setContentView(R.layout.activity_login_form);
 
         Button button = (Button) findViewById(R.id.btn_join_login);
+        Button loginButton = (Button)findViewById(R.id.btn_login);
+        loginButton.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(getApplicationContext(), DeviceListForm.class);
+                startActivity(intent);
+            }
+        });
         button.setOnClickListener(new View.OnClickListener(){
 
             @Override

@@ -3,6 +3,7 @@
     package="com.example.vision01">
 
     <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -11,8 +12,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Vision01"
         android:usesCleartextTraffic="true">
-
-
+        <activity android:name=".DeviceListForm"></activity>
         <activity android:name=".LoginForm">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
