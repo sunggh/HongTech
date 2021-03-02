@@ -63,9 +63,9 @@ public class DeviceListForm extends AppCompatActivity {
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 // list item을 클릭 했을때 나올 페이지 또는 기능을 추가하는 곳
                 // 다음 액티비티 (카메라)
-                Toast.makeText(getApplicationContext(),
-                        deviceAdpt.getItem(position).getName(),
-                        Toast.LENGTH_LONG).show();
+//                Toast.makeText(getApplicationContext(),
+//                        deviceAdpt.getItem(position).getName(),
+//                        Toast.LENGTH_LONG).show();
             }
         });
     }
