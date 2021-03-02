@@ -53,6 +53,8 @@ public class DeviceAdpt extends BaseAdapter {
         btnDeviceInfo.setText(devices.get(position).name + " ( " + devices.get(position).serialNum + " )");
 
         btnDeviceInfo.setOnClickListener(new View.OnClickListener(){
+            // list item을 클릭 했을때 나올 페이지 또는 기능을 추가하는 곳
+            // 다음 액티비티 (카메라)
             @Override
             public void onClick(View v) {
                 Toast.makeText(mContext,
