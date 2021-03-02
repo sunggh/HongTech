@@ -31,7 +31,7 @@ public class JoinForm extends AppCompatActivity {
     Button btn_join,validateButton;
     private boolean validate=false;
     private AlertDialog dialog;
-    private static String IP = "127.0.0.1";
+    private static String IP = "121.181.163.88";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,7 +48,14 @@ public class JoinForm extends AppCompatActivity {
         btn_join.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-
+                if(validate) {
+                    AlertDialog.Builder builder=new AlertDialog.Builder( JoinForm.this );
+                    dialog=builder.setMessage("아이디 중복 여부를 체크 해주세요")
+                            .setPositiveButton("확인",null)
+                            .create();
+                    dialog.show();
+                    return;
+                }
                 if(regalPassword(join_pw.getText().toString())) {
                     insertoToDatabase(join_id.getText().toString(),join_pw.getText().toString(), join_sn.getText().toString());
                 } else {
