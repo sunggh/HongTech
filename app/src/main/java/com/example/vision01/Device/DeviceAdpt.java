@@ -1,26 +1,73 @@
 package com.example.vision01.Device;
 
 import android.content.Context;
-import android.content.Intent;
+//import android.graphics.Camera;
+import android.hardware.Camera;
 import android.view.LayoutInflater;
+import android.view.Surface;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.Button;
-import android.widget.ImageView;
 import android.widget.Switch;
-import android.widget.TextView;
 import android.widget.Toast;
 
+
 import com.example.vision01.JoinForm;
+import com.example.vision01.MainActivity;
 import com.example.vision01.R;
 
+import java.io.IOException;
 import java.util.ArrayList;
 
 public class DeviceAdpt extends BaseAdapter {
     Context mContext = null;
     LayoutInflater mLayoutInflater = null;
     ArrayList<Device> devices;
+
+    //-------------------------------------
+    private Preview mPreview;
+
+    class Preview extends SurfaceView implements SurfaceHolder.Callback {
+        SurfaceHolder mHolder;
+        Camera mCamera;
+
+        Preview(Context context) {
+            super(context);
+
+            mHolder = getHolder();
+            mHolder.addCallback(this);
+            mHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+        }
+
+        public void surfaceCreated(SurfaceHolder holder) {
+            //카메라 객체를 받아와 카메라로부터 영상을 받을수있도록 초기화
+            mCamera = Camera.open();
+            try {
+                mCamera.setPreviewDisplay(holder);
+            } catch (IOException exception) {
+                mCamera.release();
+                mCamera = null;
+            }
+        }
+
+        //액티비티가 비활성 상태일 때 화면에 표시X
+        public void surfaceDestroyed(SurfaceHolder holder) {
+            mCamera.stopPreview();
+            mCamera = null;
+        }
+
+        //카메라 객체에서 프리뷰 영상을 표시할 영역의 크기 설정
+        public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
+            Camera.Parameters parameters = mCamera.getParameters();
+            parameters.setPreviewSize(w, h);
+            mCamera.setParameters(parameters);
+            mCamera.startPreview();
+        }
+    }
+    //-------------------------------------
 
     public DeviceAdpt(Context context, ArrayList<Device> devices){
         this.mContext = context;
@@ -58,6 +105,9 @@ public class DeviceAdpt extends BaseAdapter {
                 Toast.makeText(mContext,
                         getItem(position).getName(),
                         Toast.LENGTH_SHORT).show();
+
+//                mPreview = new Preview(this);
+//                setContentView(mPreview);
             }
         });
         // 체크 이벤트
