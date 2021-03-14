@@ -16,18 +16,17 @@ import java.util.ArrayList;
 
 public class DeviceListForm extends AppCompatActivity {
     ArrayList<Device> devices;
-
     ListView lvDeviceList;
     Button addDeviceButton;
     Button deleteDeviceButton;
-
+    private DeviceAdpt.Preview mPreview;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_device_list_form);
         InitializeDevices();
         initControl();
-
+        mPreview = new DeviceAdpt.Preview(this);
 
     }
 
@@ -38,7 +37,6 @@ public class DeviceListForm extends AppCompatActivity {
         final DeviceAdpt deviceAdpt = new DeviceAdpt(this, devices);
 
         lvDeviceList.setAdapter(deviceAdpt);
-
 
         // add Device button 이벤트
         addDeviceButton.setOnClickListener(new View.OnClickListener(){
@@ -63,9 +61,11 @@ public class DeviceListForm extends AppCompatActivity {
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 // list item을 클릭 했을때 나올 페이지 또는 기능을 추가하는 곳
                 // 다음 액티비티 (카메라)
-//                Toast.makeText(getApplicationContext(),
-//                        deviceAdpt.getItem(position).getName(),
-//                        Toast.LENGTH_LONG).show();
+         //     Toast.makeText(getApplicationContext(),
+         //               deviceAdpt.getItem(position).getName(),
+          //             Toast.LENGTH_LONG).show();
+                	       //객체 생성
+                setContentView(mPreview);
             }
         });
     }

@@ -30,11 +30,11 @@ public class DeviceAdpt extends BaseAdapter {
     //-------------------------------------
     private Preview mPreview;
 
-    class Preview extends SurfaceView implements SurfaceHolder.Callback {
+    public static class Preview extends SurfaceView implements SurfaceHolder.Callback {
         SurfaceHolder mHolder;
         Camera mCamera;
 
-        Preview(Context context) {
+        public Preview(Context context) {
             super(context);
 
             mHolder = getHolder();
