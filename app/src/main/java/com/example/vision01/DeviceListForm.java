@@ -19,14 +19,15 @@ public class DeviceListForm extends AppCompatActivity {
     ListView lvDeviceList;
     Button addDeviceButton;
     Button deleteDeviceButton;
-    private DeviceAdpt.Preview mPreview;
+    //private DeviceAdpt.Preview mPreview;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_device_list_form);
         InitializeDevices();
         initControl();
-        mPreview = new DeviceAdpt.Preview(this);
+
+       // mPreview = new DeviceAdpt.Preview(this);
 
     }
 
@@ -65,7 +66,7 @@ public class DeviceListForm extends AppCompatActivity {
          //               deviceAdpt.getItem(position).getName(),
           //             Toast.LENGTH_LONG).show();
                 	       //객체 생성
-                setContentView(mPreview);
+               // setContentView(mPreview);
             }
         });
     }
