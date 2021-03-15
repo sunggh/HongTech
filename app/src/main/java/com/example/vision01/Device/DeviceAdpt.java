@@ -26,22 +26,24 @@ public class DeviceAdpt extends BaseAdapter {
     Context mContext = null;
     LayoutInflater mLayoutInflater = null;
     ArrayList<Device> devices;
-
+    Camera camera;
+    SurfaceHolder mHolder=null;
     //-------------------------------------
-    private Preview mPreview;
+    private Preview mPreview = null;
 
-    public static class Preview extends SurfaceView implements SurfaceHolder.Callback {
-        SurfaceHolder mHolder;
+    class Preview extends SurfaceView implements SurfaceHolder.Callback {
+
         Camera mCamera;
 
         public Preview(Context context) {
             super(context);
 
+            mContext = context;
             mHolder = getHolder();
             mHolder.addCallback(this);
             mHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
         }
-
+        @Override
         public void surfaceCreated(SurfaceHolder holder) {
             //카메라 객체를 받아와 카메라로부터 영상을 받을수있도록 초기화
             mCamera = Camera.open();
@@ -53,13 +55,13 @@ public class DeviceAdpt extends BaseAdapter {
             }
         }
 
-        //액티비티가 비활성 상태일 때 화면에 표시X
+        @Override//액티비티가 비활성 상태일 때 화면에 표시X
         public void surfaceDestroyed(SurfaceHolder holder) {
             mCamera.stopPreview();
             mCamera = null;
         }
 
-        //카메라 객체에서 프리뷰 영상을 표시할 영역의 크기 설정
+        @Override//카메라 객체에서 프리뷰 영상을 표시할 영역의 크기 설정
         public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
             Camera.Parameters parameters = mCamera.getParameters();
             parameters.setPreviewSize(w, h);
@@ -73,6 +75,8 @@ public class DeviceAdpt extends BaseAdapter {
         this.mContext = context;
         this.devices  = devices;
         mLayoutInflater = LayoutInflater.from(mContext);
+        mPreview = new Preview(this.mContext);
+        //setContentView(mPreview);
     }
 
     @Override
@@ -104,12 +108,13 @@ public class DeviceAdpt extends BaseAdapter {
             // 다음 액티비티 (카메라)
             @Override
             public void onClick(View v) {
+
                 Toast.makeText(mContext,
                         getItem(position).getName(),
                         Toast.LENGTH_SHORT).show();
 
-//                mPreview = new Preview(this);
-//                setContentView(mPreview);
+                mPreview.surfaceCreated(mHolder);
+
             }
         });
         // 체크 이벤트
