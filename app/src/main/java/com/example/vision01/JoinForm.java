@@ -4,6 +4,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.app.ProgressDialog;
+import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
@@ -28,7 +29,7 @@ import java.net.URLEncoder;
 public class JoinForm extends AppCompatActivity {
 
     private EditText join_id, join_pw, join_sn;
-    Button btn_join,validateButton;
+    private Button btn_join,validateButton;
     private boolean validate=false;
     private AlertDialog dialog;
     private static String IP = "121.181.163.88";
@@ -41,13 +42,62 @@ public class JoinForm extends AppCompatActivity {
         join_id = findViewById(R.id.join_id);
         join_pw = findViewById(R.id.join_pw);
         join_sn = findViewById(R.id.join_sn);
+
         btn_join = findViewById(R.id.btn_join);
         validateButton = findViewById(R.id.validateButton);
 //
         String url = "http://" + IP + "/login.php";
+
         btn_join.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                String user_id = join_id.getText().toString();
+                String user_pw = join_pw.getText().toString();
+                String user_sn = join_sn.getText().toString();
+
+                Response.Listener<String>responseListener = new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        try{
+                            JSONObject jsonObject = new JSONObject(response);
+                            boolean success = jsonObject.getBoolean("success");
+
+                            if(success){ // 회원가입 성공 시
+                                if(validate){
+                                    if(regalPassword(join_pw.getText().toString())){
+                                        insertToDatabase(join_id.getText().toString(), join_pw.getText().toString(), join_sn.getText().toString());
+                                    } else{
+                                        return;
+                                    }
+                                    Toast.makeText(getApplicationContext(), "가입 성공", Toast.LENGTH_SHORT).show();
+                                    Intent intent = new Intent(JoinForm.this, LoginForm.class);
+                                    startActivity(intent);
+                                }
+                                else{
+                                    AlertDialog.Builder builder = new AlertDialog.Builder(JoinForm.this);
+                                    dialog = builder.setMessage("아이디 중복 여부를 체크 해 주세요.")
+                                            .setPositiveButton("확인", null)
+                                            .create();
+                                    dialog.show();
+                                    return;
+                                }
+                            }
+                            else{ // 회원가입 실패 시
+                                Toast.makeText(getApplicationContext(), "fail", Toast.LENGTH_SHORT).show();
+                                return;
+                            }
+                        } catch (JSONException e){
+                            Toast.makeText(getApplicationContext(), "catch", Toast.LENGTH_SHORT).show();
+                            e.printStackTrace();
+                        }
+                    }
+                };
+
+                // 서버로 Volley 를 이용해서 요청
+                RegisterRequest registerRequest = new RegisterRequest(user_id, user_pw, user_sn, responseListener);
+                RequestQueue queue = Volley.newRequestQueue(JoinForm.this);
+                queue.add(registerRequest);
+                /*
                 if(validate) {
                     AlertDialog.Builder builder=new AlertDialog.Builder( JoinForm.this );
                     dialog=builder.setMessage("아이디 중복 여부를 체크 해주세요")
@@ -61,7 +111,7 @@ public class JoinForm extends AppCompatActivity {
                 } else {
                     return;
                 }
-
+                */
             }
         });
 
@@ -132,7 +182,7 @@ public class JoinForm extends AppCompatActivity {
         return true;
     }
 
-    private void insertoToDatabase(final String ed1, String ed2, String ed3) {
+    private void insertToDatabase(final String ed1, String ed2, String ed3) {
         class InsertData extends AsyncTask<String, Void, String> {
             ProgressDialog loading;
 
