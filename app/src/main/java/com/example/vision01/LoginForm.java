@@ -20,7 +20,7 @@ public class LoginForm extends AppCompatActivity {
         loginButton.setOnClickListener(new View.OnClickListener(){
             @Override
             public void onClick(View v) {
-                Intent intent = new Intent(getApplicationContext(), DeviceListForm.class);
+                Intent intent = new Intent(getApplicationContext(), ARCamera.class);
                 startActivity(intent);
             }
         });
