@@ -35,81 +35,45 @@ import android.net.Uri;
 public class ARCamera extends AppCompatActivity {
     private ArFragment arFragment;
     private Renderable renderable;
-    private final Set<AnimationInstance> animators = new ArraySet<>();
-    private static class AnimationInstance {
-        Animator animator;
-        Long startTime;
-        float duration;
-        int index;
+    private ModelRenderable andyRenderable;
 
-        AnimationInstance(Animator animator, int index, Long startTime) {
-            this.animator = animator;
-            this.startTime = startTime;
-            this.duration = animator.getAnimationDuration(index);
-            this.index = index;
-        }
-    }
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_a_r_camera);
         arFragment = (ArFragment) getSupportFragmentManager().findFragmentById(R.id.arFragment);
-        WeakReference<ARCamera> weakActivity = new WeakReference<>(this);
+//https://storage.googleapis.com/ar-answers-in-search-models/static/Tiger/model.glb
         ModelRenderable.builder()
-                .setSource(
-                        this,
-                        Uri.parse(
-                                "https://storage.googleapis.com/ar-answers-in-search-models/static/Tiger/model.glb"))
-                .setIsFilamentGltf(true)
+                .setSource(this, Uri.parse(
+                        "https://github.com/KhronosGroup/glTF-Sample-Models/raw/master/2.0/Duck/glTF/Duck.gltf"))
                 .build()
-                .thenAccept(
-                        modelRenderable -> {
-                            ARCamera activity = weakActivity.get();
-                            if (activity != null) {
-                                activity.renderable = modelRenderable;
-                            }
-
-                        })
+                .thenAccept(renderable -> andyRenderable = renderable)
                 .exceptionally(
                         throwable -> {
                             Toast toast =
-                                    Toast.makeText(this, "Unable to load renderable", Toast.LENGTH_LONG);
+                                    Toast.makeText(this, "Unable to load andy renderable", Toast.LENGTH_LONG);
                             toast.setGravity(Gravity.CENTER, 0, 0);
                             toast.show();
                             return null;
                         });
-
         arFragment.setOnTapArPlaneListener(
                 (HitResult hitResult, Plane plane, MotionEvent motionEvent) -> {
-                    if (renderable == null) {
+                    System.out.println("1");
+                    if (andyRenderable == null) {
                         return;
                     }
+                    System.out.println("2");
                     // Create the Anchor.
                     Anchor anchor = hitResult.createAnchor();
                     AnchorNode anchorNode = new AnchorNode(anchor);
                     anchorNode.setParent(arFragment.getArSceneView().getScene());
 
-                    // Create the transformable model and add it to the anchor.
-                    TransformableNode model = new TransformableNode(arFragment.getTransformationSystem());
-                    model.setParent(anchorNode);
-                    model.setRenderable(renderable);
-                    model.select();
+                    // Create the transformable andy and add it to the anchor.
+                    TransformableNode andy = new TransformableNode(arFragment.getTransformationSystem());
+                    andy.setParent(anchorNode);
+                    andy.setRenderable(andyRenderable);
+                    andy.select();
+                    System.out.println("3");
                 });
-
-        arFragment
-                .getArSceneView()
-                .getScene()
-                .addOnUpdateListener(
-                        frameTime -> {
-                            Long time = System.nanoTime();
-                            for (AnimationInstance animator : animators) {
-                                animator.animator.applyAnimation(
-                                        animator.index,
-                                        (float) ((time - animator.startTime) / (double) SECONDS.toNanos(1))
-                                                % animator.duration);
-                                animator.animator.updateBoneMatrices();
-                            }
-                        });
     }
 }
