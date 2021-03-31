@@ -14,6 +14,12 @@ import com.google.ar.sceneform.rendering.Renderable;
 import com.google.ar.sceneform.rendering.ViewRenderable;
 import com.google.ar.sceneform.ux.ArFragment;
 import com.google.ar.sceneform.ux.TransformableNode;
+
+import android.bluetooth.BluetoothDevice;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
 import android.util.ArraySet;
 import android.widget.Toast;
@@ -40,12 +46,13 @@ public class ARCamera extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+       // registerReceiver(receiver, new IntentFilter(BluetoothDevice.ACTION_FOUND));
         setContentView(R.layout.activity_a_r_camera);
         arFragment = (ArFragment) getSupportFragmentManager().findFragmentById(R.id.arFragment);
 //https://storage.googleapis.com/ar-answers-in-search-models/static/Tiger/model.glb
         ModelRenderable.builder()
                 .setSource(this, Uri.parse(
-                        "https://github.com/KhronosGroup/glTF-Sample-Models/raw/master/2.0/Duck/glTF/Duck.gltf"))
+                        "model.gltf"))
                 .build()
                 .thenAccept(renderable -> andyRenderable = renderable)
                 .exceptionally(
@@ -58,11 +65,9 @@ public class ARCamera extends AppCompatActivity {
                         });
         arFragment.setOnTapArPlaneListener(
                 (HitResult hitResult, Plane plane, MotionEvent motionEvent) -> {
-                    System.out.println("1");
                     if (andyRenderable == null) {
                         return;
                     }
-                    System.out.println("2");
                     // Create the Anchor.
                     Anchor anchor = hitResult.createAnchor();
                     AnchorNode anchorNode = new AnchorNode(anchor);
@@ -73,7 +78,18 @@ public class ARCamera extends AppCompatActivity {
                     andy.setParent(anchorNode);
                     andy.setRenderable(andyRenderable);
                     andy.select();
-                    System.out.println("3");
                 });
     }
+
+    private final BroadcastReceiver receiver = new BroadcastReceiver(){
+        @Override
+        public void onReceive(Context context, Intent intent) {
+
+            String action = intent.getAction();
+            if(BluetoothDevice.ACTION_FOUND.equals(action)) {
+                int rssi = intent.getShortExtra(BluetoothDevice.EXTRA_RSSI,Short.MIN_VALUE);
+                Toast.makeText(getApplicationContext(),"  RSSI: " + rssi + "dBm", Toast.LENGTH_SHORT).show();
+            }
+        }
+    };
 }
