@@ -1,14 +1,19 @@
 package com.example.vision01.Device;
 
+import com.example.vision01.Sqlite.SqliteDb;
+
 import java.util.ArrayList;
 
 public class DeviceManager {
-    ArrayList<Device> devices;
-    Device selectedDevice;
+    public static DeviceManager deviceManager = null;
+    public static ArrayList<Device> devices;
+    public static Device selectedDevice;
 
-    public DeviceManager(ArrayList<Device> devices, Device selectedDevice) {
-        this.devices = devices;
-        this.selectedDevice = selectedDevice;
+    public static DeviceManager getInstance(){
+        if(deviceManager == null){
+            deviceManager = new DeviceManager();
+        }
+        return deviceManager;
     }
 
     public void addDevice(Device device){

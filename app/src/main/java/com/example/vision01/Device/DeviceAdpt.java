@@ -113,7 +113,7 @@ public class DeviceAdpt extends BaseAdapter {
                         getItem(position).getName(),
                         Toast.LENGTH_SHORT).show();
 
-                mPreview.surfaceCreated(mHolder);
+                // mPreview.surfaceCreated(mHolder);
 
             }
         });
