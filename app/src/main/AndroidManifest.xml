@@ -13,7 +13,9 @@
         android:theme="@style/Theme.Vision01"
         android:usesCleartextTraffic="true">
         <activity android:name=".DeviceListForm"></activity>
-        <activity android:name=".LoginForm">
+        <activity android:name=".LoginForm"
+            >
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -22,6 +24,7 @@
         </activity>
         <activity android:name=".JoinForm" />
         <activity android:name=".MainActivity" />
+        <activity android:name=".AddDeviceForm" />
     </application>
 
 </manifest>
