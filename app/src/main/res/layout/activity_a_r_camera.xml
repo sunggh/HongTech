@@ -1,20 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context=".ARCamera">
 
-    <fragment android:name="com.google.ar.sceneform.ux.ArFragment"
-        android:id="@+id/ux_fragment"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+    <android.opengl.GLSurfaceView
+        android:id="@+id/surfaceview"
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent"
+        android:layout_gravity="top"/>
 
-    <fragment
-        android:id="@+id/arFragment"
-        android:name="com.google.ar.sceneform.ux.ArFragment"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
-
-</FrameLayout>
+</RelativeLayout>
