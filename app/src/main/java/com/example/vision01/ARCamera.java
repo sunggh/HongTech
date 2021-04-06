@@ -141,7 +141,7 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
         instantPlacementSettings.onCreate(this);
 
         tapHelper = new TapHelper(/*context=*/ this);
-        surfaceView.setOnTouchListener(tapHelper);
+       // surfaceView.setOnTouchListener(tapHelper);
     }
 
     private final BroadcastReceiver receiver = new BroadcastReceiver(){
@@ -503,6 +503,7 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
             } else {
                 hitResultList = frame.hitTest(tap);
             }
+
             for (HitResult hit : hitResultList) {
                 // If any plane, Oriented Point, or Instant Placement Point was hit, create an anchor.
                 Trackable trackable = hit.getTrackable();
