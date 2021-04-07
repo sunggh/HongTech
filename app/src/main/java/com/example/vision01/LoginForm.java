@@ -47,6 +47,9 @@ public class LoginForm extends AppCompatActivity {
         loginButton.setOnClickListener(new View.OnClickListener(){
             @Override
             public void onClick(View v) {
+                Intent intent = new Intent(getApplicationContext(), ARCamera.class);
+                startActivity(intent);
+  /*
                 String user_id = login_id.getText().toString();
                 String user_pw = login_pw.getText().toString();
 
@@ -58,6 +61,8 @@ public class LoginForm extends AppCompatActivity {
                 Response.Listener<String> responseListener = new Response.Listener<String>() {
                     @Override
                     public void onResponse(String response) {
+
+
                         try{
                             JSONObject jsonObject = new JSONObject(response);
                             boolean success = jsonObject.getBoolean("success");
@@ -69,7 +74,7 @@ public class LoginForm extends AppCompatActivity {
                                 Log.e("login","로그인 성공");
 
                                 Toast.makeText(getApplicationContext(), "로그인 성공", Toast.LENGTH_SHORT).show();
-                                Intent intent = new Intent(getApplicationContext(), DeviceListForm.class);
+                                Intent intent = new Intent(getApplicationContext(), ARCamera.class);
 
                                 intent.putExtra("user_id", user_id);
                                 intent.putExtra("user_pw", user_pw);
@@ -91,7 +96,7 @@ public class LoginForm extends AppCompatActivity {
                 LoginRequest loginRequest = new LoginRequest(user_id, user_pw, responseListener);
                 RequestQueue queue = Volley.newRequestQueue(LoginForm.this);
                 queue.add(loginRequest);
-
+*/
             }
         });
         joinButton.setOnClickListener(new View.OnClickListener(){
