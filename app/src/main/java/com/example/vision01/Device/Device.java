@@ -1,9 +1,11 @@
 package com.example.vision01.Device;
 
 public class Device {
+    String id;
     String name;
     String serialNum;
     boolean isTheftMode;
+    int position;
 
     public Device(String name, String serialNum, boolean isTheftMode){
         this.name = name;
@@ -11,6 +13,27 @@ public class Device {
         this.isTheftMode = isTheftMode;
     }
 
+    public Device(String id, String name, String serialNum, boolean isTheftMode){
+        this.id = id;
+        this.name = name;
+        this.serialNum = serialNum;
+        this.isTheftMode = isTheftMode;
+    }
+    public Device(String id, String name, String serialNum, boolean isTheftMode, int position){
+        this.id = id;
+        this.name = name;
+        this.serialNum = serialNum;
+        this.isTheftMode = isTheftMode;
+        this.position = position;
+    }
+
+    public String getID() {
+        return id;
+    }
+
+    public void setID(String id) {
+        this.id = id;
+    }
 
     public String getName() {
         return name;
@@ -34,5 +57,13 @@ public class Device {
 
     public void setTheftMode(boolean theftMode) {
         isTheftMode = theftMode;
+    }
+
+    public int getPosition() {
+        return position;
+    }
+
+    public void setPosition(int position) {
+        this.position = position;
     }
 }

@@ -10,7 +10,7 @@ public class SqliteDb {
     public static SqliteDb sqliteDb;
     public static DbDevice dbDevice;
     public static SQLiteDatabase database;
-    public static String DBFILE_PREFIX = "Database";
+    public static String DBFILE_PREFIX = "Database_";
 
     public static SqliteDb getInstance(){
         if(sqliteDb == null){
@@ -29,7 +29,7 @@ public class SqliteDb {
     public boolean openDatabase(){
         if(database == null){
             Log.e("openDatabase", "null이라 생성");
-            File file = new File("/storage/emulated/0/Android/data/com.example.vision01/files/DatabaseUse.sqlite");
+            File file = new File("/storage/emulated/0/Android/data/com.example.vision01/files/Database_Use.sqlite");
             String dbPath = file.getAbsolutePath();
             File dbFile = new File(dbPath);
 
