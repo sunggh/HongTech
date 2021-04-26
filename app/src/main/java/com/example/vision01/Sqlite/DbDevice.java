@@ -102,8 +102,8 @@ public class DbDevice {
             ContentValues values = new ContentValues();
 
             values.put("isTheftMode", device.isTheftMode());
-
-            database.update("tbl_device",values,"serialNum = ? ", new String[]{device.getSerialNum()});
+            Log.e("isTheft", device.isTheftMode() + "," + device.getID());
+            database.update("tbl_device",values,"id = ?" , new String[]{device.getID()});
 
             return true;
         }catch(SQLiteException e) {
@@ -126,10 +126,12 @@ public class DbDevice {
         int count = cursor.getCount() - 1;
         for(int i = 0; i < count + 1; i++){
             Device device = new Device(
+                    cursor.getString(cursor.getColumnIndexOrThrow("id")),
                     cursor.getString(cursor.getColumnIndexOrThrow("name")),
                     cursor.getString(cursor.getColumnIndexOrThrow("serialNum")),
                     cursor.getInt(cursor.getColumnIndexOrThrow("isTheftMode"))==1);
             devices.add(device);
+            Log.e("Add Device in Adapter", device.getID() + ", " + device.getName() + ", " + device.isTheftMode() );
             cursor.moveToNext();
         }
 
