@@ -1,13 +1,22 @@
 package com.example.vision01;
 
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.le.BluetoothLeScanner;
+import android.bluetooth.le.ScanCallback;
+import android.bluetooth.le.ScanFilter;
+import android.bluetooth.le.ScanResult;
+import android.bluetooth.le.ScanSettings;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.media.Image;
 import android.opengl.GLES30;
 import android.opengl.Matrix;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.SystemClock;
+import android.util.Log;
 import android.widget.Toast;
 
 import com.example.vision01.common.helpers.CameraPermissionHelper;
@@ -38,6 +47,7 @@ import com.google.ar.core.LightEstimate;
 import com.google.ar.core.Plane;
 import com.google.ar.core.Point;
 import com.google.ar.core.PointCloud;
+import com.google.ar.core.Pose;
 import com.google.ar.core.Session;
 import com.google.ar.core.Trackable;
 import com.google.ar.core.TrackingFailureReason;
@@ -52,6 +62,7 @@ import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationExceptio
 
 import android.view.MotionEvent;
 
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.IOException;
@@ -94,8 +105,8 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
 
     private final TrackingStateHelper trackingStateHelper = new TrackingStateHelper(this);
 
-    private static final String SEARCHING_PLANE_MESSAGE = "Searching for surfaces...";
-    private static final String WAITING_FOR_TAP_MESSAGE = "Tap on a surface to place an object.";
+    private static final String SEARCHING_PLANE_MESSAGE = "블루투스를 찾는 중입니다...";
+    private static final String WAITING_FOR_TAP_MESSAGE = "블루투스를 찾는 중입니다2...";
 
     private final SnackbarHelper messageSnackbarHelper = new SnackbarHelper();
 
@@ -141,21 +152,94 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
         instantPlacementSettings.onCreate(this);
 
         tapHelper = new TapHelper(/*context=*/ this);
-       // surfaceView.setOnTouchListener(tapHelper);
+        surfaceView.setOnTouchListener(tapHelper);
+        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        leScanner = bluetoothAdapter.getBluetoothLeScanner();
+        scan();
     }
+    private BluetoothLeScanner leScanner;
+    private BluetoothAdapter bluetoothAdapter;
+    private void scan()
+    {
+        ScanFilter filter = new ScanFilter.Builder().setDeviceAddress("F8:95:EA:5A:DD:3C").build();
 
-    private final BroadcastReceiver receiver = new BroadcastReceiver(){
+        ArrayList<ScanFilter> filters = new ArrayList<ScanFilter>();
+        filters.add(filter);
+
+        ScanSettings settings = new ScanSettings.Builder()
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .setReportDelay(0)
+                .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+                .build();
+        leScanner.startScan(filters,settings,scanCallback);
+    }
+    private ArrayList<Integer> rssi_a = new ArrayList<Integer>();
+    private int blueRssi=-120,maxRssi;
+    private boolean blue = false;
+    private boolean blueA = false;
+    private ScanCallback scanCallback = new ScanCallback()
+    {
+        int i = 0;
+        int j = 0;
+        @RequiresApi(api = Build.VERSION_CODES.O)
         @Override
-        public void onReceive(Context context, Intent intent) {
+        public void onScanResult(int callbackType, ScanResult result)
+        {
+            super.onScanResult(callbackType, result);
+            if(blueA) return; //bluecam = camera.getPose();
+            if(result.getDevice().getAddress().equals("F8:95:EA:5A:DD:3C")){
+                int rssi= result.getRssi();
+                System.out.println("오긴옴"+j);
+                if(i==6) {
+                    i=0;
+                    rssi_a.add(rssi);
+                    rssi=0;
+                    for (int x : rssi_a) {
+                        rssi += x;
+                    }
+                    rssi_a.clear();
+                    rssi = rssi/6;
 
-            String action = intent.getAction();
-            if(BluetoothDevice.ACTION_FOUND.equals(action)) {
-                int rssi = intent.getShortExtra(BluetoothDevice.EXTRA_RSSI,Short.MIN_VALUE);
-                Toast.makeText(getApplicationContext(),"  RSSI: " + rssi + "dBm", Toast.LENGTH_SHORT).show();
+                    if(blueRssi<rssi) {
+                        blueRssi=rssi;
+
+                        if(maxRssi == blueRssi) blue =false;
+                        else blue = true;
+                        maxRssi=blueRssi;
+                    }
+                    if(j == 10) {
+                        System.out.println("한번");
+                        blueA = true;
+                    } else {
+                        j++;
+                    }
+                } else {
+                    i++;
+                    rssi_a.add(rssi);
+                }
+            }
+        }
+
+
+        @Override
+        public void onScanFailed(int errorCode)
+        {
+            super.onScanFailed(errorCode);
+            Log.i("MainActivity.java | onScanFailed", "|" + "2222222222222" + "|" + errorCode);
+        }
+
+
+        @RequiresApi(api = Build.VERSION_CODES.O)
+        @Override
+        public void onBatchScanResults(List<ScanResult> results)
+        {
+            super.onBatchScanResults(results);
+            for (ScanResult result : results)
+            {
+                Log.i("MainActivity.java | onBatchScanResults", "33333333333333|" + result.getDevice().getName() + "|" + result.getDevice().getAddress() + "|"+ result.getTxPower() + "|"+ result.getRssi() + "|");
             }
         }
     };
-
     @Override
     public void onSurfaceChanged(RenderingHelper render, int width, int height) {
         displayRotationHelper.onSurfaceChanged(width, height);
@@ -334,7 +418,7 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
             -0.273137f,
             0.136569f,
     };
-
+    public boolean round =false , firston=false;
     @Override
     public void onDrawFrame(RenderingHelper render) {
         if (session == null) {
@@ -382,7 +466,6 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
         // BackgroundRenderer.updateDisplayGeometry must be called every frame to update the coordinates
         // used to draw the background camera image.
         backgroundRenderer.updateDisplayGeometry(frame);
-
         if (camera.getTrackingState() == TrackingState.TRACKING
                 && (depthSettings.useDepthForOcclusion()
                 || depthSettings.depthColorVisualizationEnabled())) {
@@ -394,8 +477,21 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
             }
         }
 
+
         // Handle one tap per frame.
-        handleTap(frame, camera);
+        if(blue) {
+            bluecam = camera.getPose();
+           // System.out.println("쁠루캠"+bluecam);
+            blue =false;
+        }
+        if(blueA) { //round
+            if(Math.round(bluecam.tx()*100) == Math.round(camera.getPose().tx()*100)) {
+                handleTap(frame, camera);
+            } else{
+                System.out.println("bluecam.tx() :" +Math.round(bluecam.tx()*100) +"camera.getPose().tx() :"+ Math.round(camera.getPose().tx()*100));
+            }
+        }
+
 
         // Keep the screen unlocked while tracking, but allow it to lock when tracking stops.
         trackingStateHelper.updateKeepScreenOnFlag(camera.getTrackingState());
@@ -407,14 +503,8 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
             if (camera.getTrackingFailureReason() == TrackingFailureReason.NONE) {
                 message = SEARCHING_PLANE_MESSAGE;
             } else {
-                message = TrackingStateHelper.getTrackingFailureReasonString(camera);
+                message = TrackingStateHelper.getTrackingFailureReasonString(camera); // 블루투스 방향 다를시 메세지
             }
-        } else if (hasTrackingPlane()) {
-            if (anchors.isEmpty()) {
-                message = WAITING_FOR_TAP_MESSAGE;
-            }
-        } else {
-            message = SEARCHING_PLANE_MESSAGE;
         }
         if (message == null) {
             messageSnackbarHelper.hide(this);
@@ -470,9 +560,10 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
         // Visualize anchors created by touch.
         render.clear(virtualSceneFramebuffer, 0f, 0f, 0f, 0f);
         for (Anchor anchor : anchors) {
-            if (anchor.getTrackingState() != TrackingState.TRACKING) {
+
+            /*if (anchor.getTrackingState() != TrackingState.TRACKING) { 우리에게 필요한건 트레킹이 아님
                 continue;
-            }
+            }*/
 
             // Get the current pose of an Anchor in world space. The Anchor pose is updated
             // during calls to session.update() as ARCore refines its estimate of the world.
@@ -486,23 +577,73 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
             virtualObjectShader.setMat4("u_ModelView", modelViewMatrix);
             virtualObjectShader.setMat4("u_ModelViewProjection", modelViewProjectionMatrix);
             render.draw(virtualObjectMesh, virtualObjectShader, virtualSceneFramebuffer);
+
         }
 
         // Compose the virtual scene with the background.
         backgroundRenderer.drawVirtualScene(render, virtualSceneFramebuffer, Z_NEAR, Z_FAR);
     }
-
+    private static int i =-5;
+    private Pose bluecam;
     // Handle only one tap per frame, as taps are usually low frequency compared to frame rate.
     private void handleTap(Frame frame, Camera camera) {
+        Pose cameraPose = frame.getCamera().getPose();
+        List<HitResult> hitResultList;
+        // if(i==5)return;
+        hitResultList =
+                frame.hitTestInstantPlacement(cameraPose.qx()+(i*50), cameraPose.ty()+550,2);//APPROXIMATE_DISTANCE_METERS InstantPlacement
+        System.out.println(bluecam.qx());
+        for (HitResult hit : hitResultList) {
+            if (anchors.size() == 11) { // 여기에서 갯수 조정
+                break;
+            }
+
+
+            anchors.add(hit.createAnchor());
+            // If any plane, Oriented Point, or Instant Placement Point was hit, create an anchor.
+            /*Trackable trackable = hit.getTrackable();
+            // If a plane was hit, check that it was hit inside the plane polygon.
+            if ((trackable instanceof Plane
+                    && ((Plane) trackable).isPoseInPolygon(hit.getHitPose())
+                    && (PlaneRenderer.calculateDistanceToPlane(hit.getHitPose(), camera.getPose()) > 0))
+                    || (trackable instanceof Point
+                    && ((Point) trackable).getOrientationMode()
+                    == Point.OrientationMode.ESTIMATED_SURFACE_NORMAL)
+                    || (trackable instanceof InstantPlacementPoint)) {
+                // Cap the number of objects created. This avoids overloading both the
+                // rendering system and ARCore.
+                if (anchors.size() == 11) { // 여기에서 갯수 조정
+                    break;
+                }
+
+                // Adding an Anchor tells ARCore that it should track this position in
+                // space. This anchor is created on the Plane to place the 3D model
+                // in the correct position relative both to the world and to the plane.
+                anchors.add(hit.createAnchor());
+                // For devices that support the Depth API, shows a dialog to suggest enabling
+                // depth-based occlusion. This dialog needs to be spawned on the UI thread.
+                //this.runOnUiThread(this::showOcclusionDialogIfNeeded);
+
+                // Hits are sorted by depth. Consider only closest hit on a plane, Oriented Point, or
+                // Instant Placement Point.
+                break;
+            }*/
+            if(i==5) i=5;
+            else i++;
+        }
+        /*
         MotionEvent tap = tapHelper.poll();
+        System.out.println("탭할때만 들어오나?");
         if (tap != null && camera.getTrackingState() == TrackingState.TRACKING) {
+            System.out.println("ㅇㅇㅇ");
             List<HitResult> hitResultList;
-            if (instantPlacementSettings.isInstantPlacementEnabled()) {
+            /*if (instantPlacementSettings.isInstantPlacementEnabled()) {
                 hitResultList =
                         frame.hitTestInstantPlacement(tap.getX(), tap.getY(), APPROXIMATE_DISTANCE_METERS);
             } else {
-                hitResultList = frame.hitTest(tap);
+                hitResultList = frame.hitTestInstantPlacement(tap.getX(), tap.getY(), APPROXIMATE_DISTANCE_METERS);
             }
+            hitResultList = frame.hitTestInstantPlacement(tap.getX(), tap.getY(), APPROXIMATE_DISTANCE_METERS);
 
             for (HitResult hit : hitResultList) {
                 // If any plane, Oriented Point, or Instant Placement Point was hit, create an anchor.
@@ -535,7 +676,7 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
                     break;
                 }
             }
-        }
+        }*/
     }
 
     @Override
@@ -630,11 +771,12 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
         } else {
             config.setDepthMode(Config.DepthMode.DISABLED);
         }
-        if (instantPlacementSettings.isInstantPlacementEnabled()) {
+        /*if (instantPlacementSettings.isInstantPlacementEnabled()) {
             config.setInstantPlacementMode(Config.InstantPlacementMode.LOCAL_Y_UP);
         } else {
             config.setInstantPlacementMode(Config.InstantPlacementMode.DISABLED);
-        }
+        }*/
+        config.setInstantPlacementMode(Config.InstantPlacementMode.LOCAL_Y_UP);
         session.configure(config);
     }
 

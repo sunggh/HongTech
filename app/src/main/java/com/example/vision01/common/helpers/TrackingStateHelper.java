@@ -25,8 +25,8 @@ import com.google.ar.core.TrackingState;
 /** Gets human readibly tracking failure reasons and suggested actions. */
 public final class TrackingStateHelper {
   private static final String INSUFFICIENT_FEATURES_MESSAGE =
-      "Can't find anything. Aim device at a surface with more texture or color.";
-  private static final String EXCESSIVE_MOTION_MESSAGE = "Moving too fast. Slow down.";
+      "천천히 이동해주세요.";
+  private static final String EXCESSIVE_MOTION_MESSAGE = "천천히 이동해주세요.";
   private static final String INSUFFICIENT_LIGHT_MESSAGE =
       "Too dark. Try moving to a well-lit area.";
   private static final String BAD_STATE_MESSAGE =

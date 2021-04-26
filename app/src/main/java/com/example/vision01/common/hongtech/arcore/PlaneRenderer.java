@@ -49,7 +49,7 @@ public class PlaneRenderer {
   // Shader names.
   private static final String VERTEX_SHADER_NAME = "shaders/plane.vert";
   private static final String FRAGMENT_SHADER_NAME = "shaders/plane.frag";
-  private static final String TEXTURE_NAME = "models/trigrid.png";
+  private static final String TEXTURE_NAME = "models/trigrid.png";//
 
   private static final int BYTES_PER_FLOAT = Float.SIZE / 8;
   private static final int BYTES_PER_INT = Integer.SIZE / 8;
@@ -295,7 +295,7 @@ public class PlaneRenderer {
       vertexBufferObject.set(vertexBuffer);
       indexBufferObject.set(indexBuffer);
 
-      render.draw(mesh, shader);
+     // render.draw(mesh, shader);
     }
   }
 

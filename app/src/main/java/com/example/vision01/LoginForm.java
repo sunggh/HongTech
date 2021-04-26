@@ -1,16 +1,33 @@
 package com.example.vision01;
 
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
+import android.Manifest;
 import android.app.Activity;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.le.BluetoothLeScanner;
+import android.bluetooth.le.ScanCallback;
+import android.bluetooth.le.ScanFilter;
+import android.bluetooth.le.ScanResult;
+import android.bluetooth.le.ScanSettings;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.graphics.Paint;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.android.volley.RequestQueue;
@@ -26,17 +43,50 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 public class LoginForm extends AppCompatActivity {
 
     private EditText login_id, login_pw;
     private Button joinButton, loginButton;
+    private boolean findAble = true;
+    private int findWhere=0;
+
+
+    private final BroadcastReceiver receiver = new BroadcastReceiver(){
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if(BluetoothDevice.ACTION_FOUND.equals(action)){
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                int rssi = intent.getShortExtra(BluetoothDevice.EXTRA_RSSI,Short.MIN_VALUE);
+                if(device.getAddress().equals("EC:94:B1:F7:7D:A9")) { // 블루투스 시리얼 넘버
+                    System.out.println(device.getAddress()+" : "+rssi);
+                    Toast.makeText(getApplicationContext(),device.getAddress()+" : "+rssi, Toast.LENGTH_SHORT).show();
+                }
+            }
+        }
+
+
+
+
+    };
+
+    private BluetoothAdapter bluetoothAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         //dataFileCopy();
+
         setContentView(R.layout.activity_login_form);
+        if(ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED)
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, 1);
+        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        leScanner = bluetoothAdapter.getBluetoothLeScanner();
+
 
         login_id = findViewById(R.id.login_id);
         login_pw = findViewById(R.id.login_pw);
@@ -102,11 +152,107 @@ public class LoginForm extends AppCompatActivity {
         joinButton.setOnClickListener(new View.OnClickListener(){
             @Override
             public void onClick(View v) {
-                Intent intent = new Intent(getApplicationContext(), JoinForm.class);
+//                if(findAble)
+//                    scan();
+//                else {
+//                    findAble = true;
+//                    findWhere++;
+//                    Toast.makeText(getApplicationContext(),"찾기 재 시작", Toast.LENGTH_SHORT).show();
+//                }
+                Intent intent = new Intent(getApplicationContext(), FindForm.class);
                 startActivity(intent);
             }
         });
     }
+
+    private BluetoothLeScanner leScanner;
+    private void scan()
+    {
+        ScanFilter filter = new ScanFilter.Builder().setDeviceAddress("F8:95:EA:5A:DD:3C").build();
+
+        ArrayList<ScanFilter> filters = new ArrayList<ScanFilter>();
+        filters.add(filter);
+
+        ScanSettings settings = new ScanSettings.Builder()
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .setReportDelay(0)
+                .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+                .build();
+        leScanner.startScan(filters,settings,scanCallback);
+    }
+    private ArrayList<Integer> rssi_a = new ArrayList<Integer>();
+    private int blueRssi=-120,maxRssi;
+
+    private int[] rssis = new int[10];
+
+    private boolean blue = false;
+    private boolean blueA = false;
+    private ScanCallback scanCallback = new ScanCallback()
+    {
+        int i = 0;
+        int j = 0,c = 0;
+        double[] sampling = new double[10];
+        @RequiresApi(api = Build.VERSION_CODES.O)
+        @Override
+        public void onScanResult(int callbackType, ScanResult result)
+        {
+            super.onScanResult(callbackType, result);
+            if(!findAble) return; // 계산시 중복 방지
+            int rssi= result.getRssi();
+            rssis[(rssi*-1)/10]++;
+
+            Log.i("onScanResult", "|" + "111111111111111" + "|"  + result.getDevice().getAddress() +"|"+ result.getRssi());
+            c++;
+            System.out.println("오긴옴"+c);
+            if(c == 20) {
+                findAble = false;
+                c = 0;
+                int x=0;
+                System.out.println("오긴옴"+findWhere);
+                sampling[findWhere] = 0.1*rssis[1]+0.2*rssis[2]+0.3*rssis[3]+0.5*rssis[4]+0.6*rssis[5]+1.0*rssis[6]+1.5*rssis[7]+2*rssis[8]+4*rssis[9];
+
+
+                if(findWhere ==3) {
+                    double temp=10000;
+                    for(int a=0;a<4;a++) {
+                        if(sampling[a]<temp)  {
+                            temp=sampling[a];
+                            x= a;
+                        }
+                    }
+                    Log.i("onScanResult", "젤 쌘 방향은 " + x);
+                    Toast.makeText(getApplicationContext()," x " + x, Toast.LENGTH_SHORT).show();
+                    return;
+                } else{
+                    Toast.makeText(getApplicationContext()," 스캔완료 " + findWhere, Toast.LENGTH_SHORT).show();
+                }
+                rssis = new int[10];
+            }
+            // Log.i("onScanResult", "|" + "111111111111111" + "|"  + result.getDevice().getAddress() +"|"+ result.getRssi());
+            //Toast.makeText(getApplicationContext()," rssi는 대략 "+rssi+"db | " +j, Toast.LENGTH_SHORT).show();
+        }
+
+
+        @Override
+        public void onScanFailed(int errorCode)
+        {
+            super.onScanFailed(errorCode);
+            Log.i("MainActivity.java | onScanFailed", "|" + "2222222222222" + "|" + errorCode);
+        }
+
+
+        @RequiresApi(api = Build.VERSION_CODES.O)
+        @Override
+        public void onBatchScanResults(List<ScanResult> results)
+        {
+            super.onBatchScanResults(results);
+
+            for (ScanResult result : results)
+            {
+                Log.i("MainActivity.java | onBatchScanResults", "33333333333333|" + result.getDevice().getName() + "|" + result.getDevice().getAddress() + "|"+ result.getTxPower() + "|"+ result.getRssi() + "|");
+            }
+        }
+    };
     public void dataFileCopy(){
         try{
             AssetManager assetMgr = this.getAssets();

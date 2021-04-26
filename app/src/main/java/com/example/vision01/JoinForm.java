@@ -32,7 +32,7 @@ public class JoinForm extends AppCompatActivity {
     private Button btn_join,validateButton;
     private boolean validate=false;
     private AlertDialog dialog;
-    private static String IP = "121.181.163.88";
+    private static String IP = "211.199.79.126";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
