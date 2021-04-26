@@ -3,29 +3,33 @@ package com.example.vision01.Device;
 import android.content.Context;
 //import android.graphics.Camera;
 import android.hardware.Camera;
+import android.util.Log;
 import android.view.LayoutInflater;
-import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.Button;
+import android.widget.CompoundButton;
 import android.widget.Switch;
+import android.widget.TextView;
 import android.widget.Toast;
 
 
-import com.example.vision01.JoinForm;
-import com.example.vision01.MainActivity;
+import com.example.vision01.DeviceListForm;
 import com.example.vision01.R;
+import com.example.vision01.Sqlite.SqliteDb;
 
 import java.io.IOException;
 import java.util.ArrayList;
 
 public class DeviceAdpt extends BaseAdapter {
+    SqliteDb sqliteDb = SqliteDb.getInstance();
     Context mContext = null;
     LayoutInflater mLayoutInflater = null;
     ArrayList<Device> devices;
+    public TextView menu;
     Camera camera;
     SurfaceHolder mHolder=null;
     //-------------------------------------
@@ -34,7 +38,6 @@ public class DeviceAdpt extends BaseAdapter {
     class Preview extends SurfaceView implements SurfaceHolder.Callback {
 
         Camera mCamera;
-
         public Preview(Context context) {
             super(context);
 
@@ -100,28 +103,37 @@ public class DeviceAdpt extends BaseAdapter {
 
         Button btnDeviceInfo = (Button)view.findViewById(R.id.btn_device_info);
         Switch isTheftMode = (Switch) view.findViewById(R.id.switch_is_theft_mode);
-
+        // menu = (TextView)view.findViewById(R.id.popup_menu_text);
         btnDeviceInfo.setText(devices.get(position).name + " ( " + devices.get(position).serialNum + " )");
+        isTheftMode.setChecked(devices.get(position).isTheftMode);
 
         btnDeviceInfo.setOnClickListener(new View.OnClickListener(){
             // list item을 클릭 했을때 나올 페이지 또는 기능을 추가하는 곳
             // 다음 액티비티 (카메라)
             @Override
             public void onClick(View v) {
-
+                Device selectedDevice = new Device(devices.get(position).id,devices.get(position).name,devices.get(position).serialNum, false, position);
                 Toast.makeText(mContext,
-                        getItem(position).getName(),
+                        getItem(position).getName() + "( " + getItem(position).getSerialNum() + " )",
                         Toast.LENGTH_SHORT).show();
-
-                // mPreview.surfaceCreated(mHolder);
-
+                ((DeviceListForm)DeviceListForm.mContext).ConfirmState(selectedDevice);
             }
         });
         // 체크 이벤트
-        // isTheftMode.setOnCheckedChangeListener();
+        isTheftMode.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                Device selectedDevice = new Device(devices.get(position).id,devices.get(position).name,devices.get(position).serialNum, isChecked, position);
+                Log.e("isTheft", isChecked + "," + devices.get(position).getID() + " " + devices.get(position).getName());
+                //Log.e("isTheft", isChecked + "," + devices.get(position).isTheftMode());
+                sqliteDb.dbDevice.updateIsTheftMode(selectedDevice);
 
-        isTheftMode.setChecked(devices.get(position).isTheftMode);
+
+            }
+        });
 
         return view;
     }
+
 }
+
