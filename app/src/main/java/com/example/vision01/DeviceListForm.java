@@ -1,28 +1,26 @@
 package com.example.vision01;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.PopupMenu;
 import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
 
 import android.Manifest;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothGatt;
-import android.bluetooth.BluetoothGattCallback;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.res.AssetManager;
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -34,23 +32,14 @@ import com.example.vision01.Device.DeviceManager;
 import com.example.vision01.Sqlite.DbDevice;
 import com.example.vision01.Sqlite.SqliteDb;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Set;
 
 public class DeviceListForm extends AppCompatActivity {
     SqliteDb sqliteDb = SqliteDb.getInstance();
     ArrayList<Device> devices;
     ListView lvDeviceList;
-    Button addDeviceButton;
-    Button deleteDeviceButton;
     TextView textState;
+    Button btnMakeNotification;
     DeviceAdpt deviceAdpt;
     Device selectedDevice; //선택된 제품 (삭제하거나 rssi 찾을 때 사용)
     int stateFlag = 0;  //0 ->찾기 1 -> 추가 2 -> 수정 3-> 삭제
@@ -58,7 +47,6 @@ public class DeviceListForm extends AppCompatActivity {
     public static Context mContext;
 
     private final static int REQUEST_ENABLE_BT = 1;
-
 
     //private DeviceAdpt.Preview mPreview;
     @Override
@@ -73,18 +61,26 @@ public class DeviceListForm extends AppCompatActivity {
 
         mContext = this;
 
-       // mPreview = new DeviceAdpt.Preview(this);
-
     }
     public void initControl(){
         lvDeviceList = (ListView)findViewById(R.id.listView);
         textState = (TextView)findViewById(R.id.text_state);
+        btnMakeNotification = (Button)findViewById(R.id.btn_make_notification);
         deviceAdpt = new DeviceAdpt(this, devices);
 
         registerReceiver(receiver, new IntentFilter(BluetoothDevice.ACTION_FOUND));
 
         lvDeviceList.setAdapter(deviceAdpt);
 
+        btnMakeNotification.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View v) {
+                makeNotification();
+                startService();
+//                Intent passedIntent = getIntent();
+//                processCommand(passedIntent);
+            }
+        });
     }
     @Override
     protected void onResume() {
@@ -122,11 +118,11 @@ public class DeviceListForm extends AppCompatActivity {
                 AddDevice();
                 break;
             case R.id.action_modify:
-                textState.setText("제품 수정");
+                textState.setText("물건 수정");
                 stateFlag = 2;
                 break;
             case R.id.action_delete:
-                textState.setText("제품 삭제");
+                textState.setText("물건 삭제");
                 stateFlag = 3;
                 break;
         }
@@ -182,10 +178,10 @@ public class DeviceListForm extends AppCompatActivity {
                 deviceAdpt.notifyDataSetChanged();
             }
             else{
-                Toast.makeText(getApplicationContext(),"삭제할 제품을 선택하세요.",Toast.LENGTH_SHORT).show();
+                Toast.makeText(getApplicationContext(),"삭제할 물건을 선택하세요.",Toast.LENGTH_SHORT).show();
             }
         }
-        textState.setText("제품 찾기");
+        //textState.setText("물건 찾기");
         stateFlag = 0;  //다시 찾기 상태
         Intent intent = getIntent();
         finish();
@@ -212,7 +208,7 @@ public class DeviceListForm extends AppCompatActivity {
         Log.e("replace sn", those_num + " my device : " + my_num);
         //일치 한다면 toast하고 true
         if(my_num.equals(those_num)){
-            Toast.makeText(getApplicationContext(),"제품이 주위에 있습니다. -> " + rssi + "dBm",Toast.LENGTH_SHORT).show();
+            Toast.makeText(getApplicationContext(),"물건이 주위에 있습니다. -> " + rssi + "dBm",Toast.LENGTH_SHORT).show();
             return true;
         }
         return false;
@@ -245,5 +241,44 @@ public class DeviceListForm extends AppCompatActivity {
             startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
         }
     }
+    private void startService() {
+        // 서비스 시작하기
+        Intent intent = new Intent(
+                getApplicationContext(),//현재제어권자
+                TheftModeService.class); // 이동할 컴포넌트
+        startService(intent); // 서비스 시작
+    }
+// 이와 같이 모든 경우에 서비스로부터 받은 인텐트가 처리 될 수 있도록한다.
+// 이제 processCommand() 메서드 정의.
 
+//    private void processCommand(Intent intent) {
+//        if (intent != null) {
+//            String command = intent.getStringExtra("command");
+//            String name = intent.getStringExtra("name");
+//
+//            Toast.makeText(this, "서비스로부터 전달받은 데이터: " + command + ", " + name, Toast.LENGTH_LONG).show();
+//        }
+//    }
+    private void makeNotification(){
+        //Notification 인스턴스를 만들고 builder를 통해 세부 내용을 설정한다.
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "default");
+        //빌더를 통해 아이콘, 타이틀, 내용을 설정한다.
+        builder.setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setContentTitle("도난의심")
+                .setContentText("현재 물건이 근처에 존재하지 않습니다. 확인해보시기 바랍니다.")
+                .setVibrate(new long[]{1000,2000,1000,3000,1000,4000});
+        //컬러를 설정한다.
+        builder.setColor(Color.RED);
+        // 사용자가 탭을 클릭하면 자동 제거
+        builder.setAutoCancel(true);
+        // 알림 표시
+        NotificationManager notificationManager = (NotificationManager) this.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            notificationManager.createNotificationChannel(new NotificationChannel("default", "어디갔노 채널",
+                    NotificationManager.IMPORTANCE_DEFAULT));
+        }
+        // id값은
+        // 정의해야하는 각 알림의 고유한 int값
+        notificationManager.notify(1, builder.build());
+    }
 }
