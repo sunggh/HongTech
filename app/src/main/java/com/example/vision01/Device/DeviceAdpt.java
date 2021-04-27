@@ -39,7 +39,6 @@ public class DeviceAdpt extends BaseAdapter {
         this.mContext = context;
         this.devices  = devices;
         mLayoutInflater = LayoutInflater.from(mContext);
-        mPreview = new Preview(this.mContext);
         //setContentView(mPreview);
     }
 
@@ -77,9 +76,9 @@ public class DeviceAdpt extends BaseAdapter {
                 Toast.makeText(mContext,
                         getItem(position).getName() + "( " + getItem(position).getSerialNum() + " )",
                         Toast.LENGTH_SHORT).show();
-                ((DeviceListForm)DeviceListForm.mContext).ConfirmState(selectedDevice);
-
-                DeviceListForm.dlf.getFindForm();
+                boolean flag = ((DeviceListForm)DeviceListForm.mContext).ConfirmState(selectedDevice);
+                if(flag)
+                    DeviceListForm.dlf.getFindForm();
             }
         });
         // 체크 이벤트

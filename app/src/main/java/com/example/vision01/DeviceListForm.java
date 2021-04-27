@@ -152,23 +152,24 @@ public class DeviceListForm extends AppCompatActivity {
     }
 
 
-    public void ConfirmState(Device device) {
+    public boolean ConfirmState(Device device) {
         //선택된 제품의 정보를 저장
         selectedDevice = device;
 
         //찾기
-        switch (stateFlag){
+        switch (stateFlag) {
             case 0:
                 //찾기
                 getRSSIList();
-                break;
+                return true;
             case 2:
                 //수정
-                break;
+                return false;
             case 3:
                 //삭제
                 DeleteDevice();
-                break;
+                return false;
+            default: return false;
         }
 
     }
@@ -233,7 +234,6 @@ public class DeviceListForm extends AppCompatActivity {
         }
         return false;
     }
-*/
     // 추후에 내부 디비 연동해서 불러오기.
     public void InitializeDevices()
     {
