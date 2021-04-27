@@ -5,7 +5,8 @@
     android:layout_height="match_parent"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <SurfaceView
+    <!-- surfaceview를 상속받아서 만든 임의의 뷰라서 앞에 패키지 이름 필수 -->
+    <com.example.vision01.PreviewCamera
         android:id="@+id/surfaceView_cam"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -16,7 +17,7 @@
     <Button
         android:id="@+id/button_find"
         android:layout_width="match_parent"
-        android:layout_height="60dp"
+        android:layout_height="50dp"
         android:textSize="20dp"
         android:layout_alignParentBottom="true"
         android:layout_alignParentLeft="true"

@@ -3,6 +3,8 @@ package com.example.vision01;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
+import androidx.appcompat.widget.PopupMenu;
+import androidx.core.app.ActivityCompat;
 
 import android.Manifest;
 import android.app.NotificationChannel;
@@ -11,12 +13,26 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.Manifest;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCallback;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.res.AssetManager;
+import android.graphics.Color;
 import android.content.IntentFilter;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.ContextMenu;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -33,6 +49,7 @@ import com.example.vision01.Sqlite.DbDevice;
 import com.example.vision01.Sqlite.SqliteDb;
 
 import java.util.ArrayList;
+import java.util.Set;
 
 public class DeviceListForm extends AppCompatActivity {
     SqliteDb sqliteDb = SqliteDb.getInstance();
@@ -48,6 +65,9 @@ public class DeviceListForm extends AppCompatActivity {
 
     private final static int REQUEST_ENABLE_BT = 1;
 
+    public static DeviceListForm dlf;
+
+
     //private DeviceAdpt.Preview mPreview;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,11 +76,11 @@ public class DeviceListForm extends AppCompatActivity {
         InitializeDevices();
         checkLocationPermissions();
         enableBluetooth();
+        dlf=this;
         initControl();
-        //bindList();
+
 
         mContext = this;
-
     }
     public void initControl(){
         lvDeviceList = (ListView)findViewById(R.id.listView);
@@ -213,6 +233,7 @@ public class DeviceListForm extends AppCompatActivity {
         }
         return false;
     }
+*/
     // 추후에 내부 디비 연동해서 불러오기.
     public void InitializeDevices()
     {
@@ -280,5 +301,9 @@ public class DeviceListForm extends AppCompatActivity {
         // id값은
         // 정의해야하는 각 알림의 고유한 int값
         notificationManager.notify(1, builder.build());
+    }
+    public void getFindForm() {
+        Intent intent = new Intent(getApplicationContext(), FindForm.class);
+        startActivity(intent);
     }
 }

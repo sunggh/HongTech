@@ -2,6 +2,7 @@ package com.example.vision01.Device;
 
 import android.content.Context;
 //import android.graphics.Camera;
+import android.content.Intent;
 import android.hardware.Camera;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -18,6 +19,7 @@ import android.widget.Toast;
 
 
 import com.example.vision01.DeviceListForm;
+import com.example.vision01.FindForm;
 import com.example.vision01.R;
 import com.example.vision01.Sqlite.SqliteDb;
 
@@ -32,47 +34,6 @@ public class DeviceAdpt extends BaseAdapter {
     public TextView menu;
     Camera camera;
     SurfaceHolder mHolder=null;
-    //-------------------------------------
-    private Preview mPreview = null;
-
-    class Preview extends SurfaceView implements SurfaceHolder.Callback {
-
-        Camera mCamera;
-        public Preview(Context context) {
-            super(context);
-
-            mContext = context;
-            mHolder = getHolder();
-            mHolder.addCallback(this);
-            mHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
-        }
-        @Override
-        public void surfaceCreated(SurfaceHolder holder) {
-            //카메라 객체를 받아와 카메라로부터 영상을 받을수있도록 초기화
-            mCamera = Camera.open();
-            try {
-                mCamera.setPreviewDisplay(holder);
-            } catch (IOException exception) {
-                mCamera.release();
-                mCamera = null;
-            }
-        }
-
-        @Override//액티비티가 비활성 상태일 때 화면에 표시X
-        public void surfaceDestroyed(SurfaceHolder holder) {
-            mCamera.stopPreview();
-            mCamera = null;
-        }
-
-        @Override//카메라 객체에서 프리뷰 영상을 표시할 영역의 크기 설정
-        public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
-            Camera.Parameters parameters = mCamera.getParameters();
-            parameters.setPreviewSize(w, h);
-            mCamera.setParameters(parameters);
-            mCamera.startPreview();
-        }
-    }
-    //-------------------------------------
 
     public DeviceAdpt(Context context, ArrayList<Device> devices){
         this.mContext = context;
@@ -117,6 +78,8 @@ public class DeviceAdpt extends BaseAdapter {
                         getItem(position).getName() + "( " + getItem(position).getSerialNum() + " )",
                         Toast.LENGTH_SHORT).show();
                 ((DeviceListForm)DeviceListForm.mContext).ConfirmState(selectedDevice);
+
+                DeviceListForm.dlf.getFindForm();
             }
         });
         // 체크 이벤트
