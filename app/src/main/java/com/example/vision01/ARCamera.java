@@ -339,7 +339,7 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
         if (session == null) {
             return;
         }
-        if(FindForm.isRaderMode){
+        if(FindForm.Mode == FindForm.CUR_MODE.RADER){
             finish();
             return;
         }
