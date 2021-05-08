@@ -62,7 +62,7 @@ public class FindForm extends AppCompatActivity {
         SEARCHED,
         AR,
         RADER,
-        SOUND;
+        PROGRESS;
     }
 
 
@@ -123,7 +123,7 @@ public class FindForm extends AppCompatActivity {
 
     private void scan() {
         ScanFilter filter = new ScanFilter.Builder().setDeviceAddress("F0:08:D1:D4:F8:52").build();//F8:95:EA:5A:DD:3C
-            //F0:08:D1:D4:F8:52
+        //F0:08:D1:D4:F8:52
         ArrayList<ScanFilter> filters = new ArrayList<ScanFilter>();
         filters.add(filter);
 
@@ -137,9 +137,10 @@ public class FindForm extends AppCompatActivity {
 
     private ScanCallback scanCallback = new ScanCallback() {
 
-        int Distance_Count = 0, increase = 0, direction = 0;
+        int Distance_Count = 0, increase = 0, direction = 0, control = 0;
         double[] rssi_direction = new double[10];
         KalmanFilter kalmanFilter= null;
+        double progress_rssi = -55;
 
         @RequiresApi(api = Build.VERSION_CODES.O)
         @Override
@@ -157,20 +158,26 @@ public class FindForm extends AppCompatActivity {
             } else {
                 filtered_rssi = kalmanFilter.update(rssi); // 들어오는 rssi 값 칼만 필터 적용
             }
-
             switch(Mode) {
                 case NONE:
-                    if(filtered_rssi<=-74) {
-                        Distance_Count++;
-                        if(Distance_Count == 5) {
-                            Toast.makeText(getApplicationContext(), " 신호가 너무 멉니다. 다른 장소로 이동해주세요 :" + String.valueOf((int)(filtered_rssi)), Toast.LENGTH_SHORT).show();
-                            Distance_Count=0;
+                    if(filtered_rssi<=-72) {
+                        if(filtered_rssi+5 > -75) {
+                            Toast.makeText(getApplicationContext(), " 근처에 있습니다. 조금만 앞으로 이동해주세요." + String.valueOf((int)(filtered_rssi)), Toast.LENGTH_SHORT).show();
+                            break;
+                        } else {
+                            Distance_Count++;
+                            if(Distance_Count == 15) {
+                                Toast.makeText(getApplicationContext(), " 신호가 멀어지고 있습니다. :" + String.valueOf((int)(filtered_rssi)), Toast.LENGTH_SHORT).show();
+                                Distance_Count=0;
+                            }
                         }
                     } else {
                         if(Distance_Count == 0) {
                             Mode = CUR_MODE.SEARCH_READY;
                             Toast.makeText(getApplicationContext(), " 찾기모드가 준비 되었습니다. 버튼을 눌러 시작해주세요", Toast.LENGTH_SHORT).show();
                             kalmanFilter = null;
+                            filtered_rssied=0.0f;
+                            increase=0;
                         } else {
                             Distance_Count=0;
                         }
@@ -212,66 +219,157 @@ public class FindForm extends AppCompatActivity {
                     }
                     break;
                 case AR:
-                    if(filtered_rssi > -65) {
+                    if(filtered_rssi > -70) {
                         Intent intent = new Intent(getApplicationContext(), OpenRader.class);
                         startActivity(intent);
                         Mode = CUR_MODE.RADER;
                     }
                     break;
                 case RADER:
-                    if(filtered_rssied > filtered_rssi) {
-                        increase++;
-                    } else {
-                        filtered_rssied=filtered_rssi;
-                        increase = 0;
-                    }
-                    if(increase == 5) {
-                        switch (first_direction) {
-                            case 0:
-                                if (secondRssi == 1) {
-                                    OpenRader.mRadarView.target_alpha = 0;
-                                } else if (secondRssi == 3) {
-                                    OpenRader.mRadarView.target_alpha = 180;
-                                }
-                                break;
-                            case 1:
-                                if (secondRssi == 2) {
-                                    OpenRader.mRadarView.target_alpha = 0;
-                                } else if (secondRssi == 0) {
-                                    OpenRader.mRadarView.target_alpha = 180;
-                                }
-                                break;
-                            case 2:
-                                if (secondRssi == 3) {
-                                    OpenRader.mRadarView.target_alpha = 0;
-                                } else if (secondRssi == 1) {
-                                    OpenRader.mRadarView.target_alpha = 180;
-                                }
-                                break;
-                            case 3:
-                                if (secondRssi == 0) {
-                                    OpenRader.mRadarView.target_alpha = 0;
-                                } else if (secondRssi == 2) {
-                                    OpenRader.mRadarView.target_alpha = 180;
-                                }
-                                break;
-                        }
-                    } else {
-                        if(OpenRader.mRadarView == null)  break;
-                        OpenRader.mRadarView.target_alpha = 90;
-                    }
-                    if(OpenRader.mRadarView == null && OpenRader.textView == null)  break;
+                    if(OpenRader.mRadarView == null || OpenRader.textView == null)  break;
+                    if(control == 15) {
+                        if(filtered_rssied > filtered_rssi) {
+                            increase++;
 
-                    OpenRader.mRadarView.startAnimation();
-                    OpenRader.textView.setText(String.valueOf((int)(filtered_rssi)));
-                    if(filtered_rssi > -50) {
-                        Mode = CUR_MODE.SOUND;
-                        Toast.makeText(getApplicationContext(), "사운드 모드 전환 : ", Toast.LENGTH_SHORT).show();
-                    }
+                        } else {
+                            filtered_rssied=filtered_rssi;
+                            increase = 0;
+
+                        }
+                        if(increase == 2) {
+                            switch (first_direction) {
+                                case 0:
+                                    if (second_direction == 1) {
+                                        OpenRader.mRadarView.target_alpha = 0;
+                                        Toast.makeText(getApplicationContext(), "오른쪽", Toast.LENGTH_SHORT).show();
+
+                                    } else if (second_direction == 3) {
+                                        OpenRader.mRadarView.target_alpha = 180;
+                                        Toast.makeText(getApplicationContext(), "왼쪽", Toast.LENGTH_SHORT).show();
+                                    } else  {
+                                        Toast.makeText(getApplicationContext(), "오류", Toast.LENGTH_SHORT).show();
+
+                                    }
+                                    break;
+                                case 1:
+                                    if (second_direction == 2) {
+                                        OpenRader.mRadarView.target_alpha = 0;
+                                        Toast.makeText(getApplicationContext(), "오른쪽", Toast.LENGTH_SHORT).show();
+                                    } else if (second_direction == 0) {
+                                        OpenRader.mRadarView.target_alpha = 180;
+                                        Toast.makeText(getApplicationContext(), "왼쪽", Toast.LENGTH_SHORT).show();
+                                    } else  {
+                                        Toast.makeText(getApplicationContext(), "오류", Toast.LENGTH_SHORT).show();
+                                    }
+                                    break;
+                                case 2:
+                                    if (second_direction == 3) {
+                                        OpenRader.mRadarView.target_alpha = 0;
+                                        Toast.makeText(getApplicationContext(), "오른쪽", Toast.LENGTH_SHORT).show();
+                                    } else if (second_direction == 1) {
+                                        OpenRader.mRadarView.target_alpha = 180;
+                                        Toast.makeText(getApplicationContext(), "왼쪽", Toast.LENGTH_SHORT).show();
+                                    } else  {
+                                        Toast.makeText(getApplicationContext(), "오류", Toast.LENGTH_SHORT).show();
+                                    }
+                                    break;
+                                case 3:
+                                    if (second_direction == 0) {
+                                        OpenRader.mRadarView.target_alpha = 0;
+                                        Toast.makeText(getApplicationContext(), "오른쪽", Toast.LENGTH_SHORT).show();
+                                    } else if (second_direction == 2) {
+                                        OpenRader.mRadarView.target_alpha = 180;
+                                        Toast.makeText(getApplicationContext(), "왼쪽", Toast.LENGTH_SHORT).show();
+                                    } else  {
+                                        Toast.makeText(getApplicationContext(), "오류", Toast.LENGTH_SHORT).show();
+                                    }
+                                    break;
+                            }
+                        } else {
+                            if(OpenRader.mRadarView == null)  break;
+                            OpenRader.mRadarView.target_alpha = 90;
+                        }
+                        if(OpenRader.mRadarView == null && OpenRader.textView == null)  break;
+
+                        OpenRader.mRadarView.startAnimation();
+                        OpenRader.textView.setText(String.valueOf((int)(filtered_rssi)));
+                        if(filtered_rssi > -56) {
+                            Mode = CUR_MODE.PROGRESS;
+
+                            Intent intent = new Intent(getApplicationContext(), ProgressbarForm.class);
+                            startActivity(intent);
+                        }
+                        control = 0 ;
+                    } else
+                        control++;
                     break;
-                case SOUND:
-                    OpenRader.textView.setText(String.valueOf((int)(filtered_rssi)));
-                        //구현해야함
+                case PROGRESS:
+                    if(ProgressbarForm.circleProgressBar == null) break;
+
+                    if(control == 15) {
+                        if(filtered_rssi > -65) {
+                            double tmp;
+                            int a = 0, b = 0;
+                            tmp = progress_rssi-filtered_rssi;
+
+                            System.out.println("tmp"+tmp);
+                            if(tmp > 0) {
+
+                                a = (int)(tmp/(0.15));
+                                System.out.println("a"+a);
+
+
+                                for(int i=0; i<a; i++) {
+                                    if(ProgressbarForm.circleProgressBar.getProgress()==100) {
+                                        break;
+                                    }
+
+                                    runOnUiThread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            ProgressbarForm.circleProgressBar.setProgress(ProgressbarForm.circleProgressBar.getProgress()+1);
+                                        }
+                                    });
+
+                                    try {
+                                        Thread.sleep(100);
+                                    } catch (InterruptedException e) {
+                                        e.printStackTrace();
+                                    }
+                                }
+                            }
+                            else {
+                                b = (int)(tmp/(0.15)*-1);
+                                System.out.println("b"+b);
+
+                                for(int i=0; i<b; i++) {
+                                    if(ProgressbarForm.circleProgressBar.getProgress()==0) {
+                                        break;
+                                    }
+                                    runOnUiThread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            ProgressbarForm.circleProgressBar.setProgress(ProgressbarForm.circleProgressBar.getProgress()-1);
+                                        }
+                                    });
+
+                                    try {
+                                        Thread.sleep(100);
+                                    } catch (InterruptedException e) {
+                                        e.printStackTrace();
+                                    }
+                                }
+                            }
+                            progress_rssi = filtered_rssi;
+                        }
+                        control = 0;
+                    }
+                    else {
+
+                        control++;
+                    }
+
+                    //구현해야함
                     break;
             }
         }
