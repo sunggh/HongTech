@@ -62,7 +62,8 @@ public class FindForm extends AppCompatActivity {
         SEARCHED,
         AR,
         RADER,
-        PROGRESS;
+        PROGRESS,
+        PROGRESSING;
     }
 
 
@@ -122,7 +123,7 @@ public class FindForm extends AppCompatActivity {
     }
 
     private void scan() {
-        ScanFilter filter = new ScanFilter.Builder().setDeviceAddress("F0:08:D1:D4:F8:52").build();//F8:95:EA:5A:DD:3C
+        ScanFilter filter = new ScanFilter.Builder().setDeviceAddress("F8:95:EA:5A:DD:3C").build();//F8:95:EA:5A:DD:3C, F0:08:D1:D4:F8:52
         //F0:08:D1:D4:F8:52
         ArrayList<ScanFilter> filters = new ArrayList<ScanFilter>();
         filters.add(filter);
@@ -140,13 +141,13 @@ public class FindForm extends AppCompatActivity {
         int Distance_Count = 0, increase = 0, direction = 0, control = 0;
         double[] rssi_direction = new double[10];
         KalmanFilter kalmanFilter= null;
-        double progress_rssi = -55;
+        double progress_rssi = -65;
 
         @RequiresApi(api = Build.VERSION_CODES.O)
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
             super.onScanResult(callbackType, result);
-            if(Mode == CUR_MODE.SEARCH || Mode == CUR_MODE.SEARCHED)  return;
+            if(Mode == CUR_MODE.SEARCH || Mode == CUR_MODE.SEARCHED|| Mode == CUR_MODE.PROGRESSING)  return;
 
             /* RSSI 변수 선언 */
             int rssi = result.getRssi();
@@ -306,60 +307,66 @@ public class FindForm extends AppCompatActivity {
                 case PROGRESS:
                     if(ProgressbarForm.circleProgressBar == null) break;
 
-                    if(control == 15) {
-                        if(filtered_rssi > -65) {
-                            double tmp;
-                            int a = 0, b = 0;
-                            tmp = progress_rssi-filtered_rssi;
+                    if(control == 5) {
+                        if(filtered_rssi >= -65) {
+                            int tmp;
 
-                            System.out.println("tmp"+tmp);
-                            if(tmp > 0) {
+                            tmp = -65 - (int)filtered_rssi;
 
-                                a = (int)(tmp/(0.15));
-                                System.out.println("a"+a);
+                            ProgressbarForm.test.progress(tmp);
 
+                            Toast.makeText(getApplicationContext(), "rssi::" + filtered_rssi,Toast.LENGTH_SHORT).show();
 
-                                for(int i=0; i<a; i++) {
-                                    if(ProgressbarForm.circleProgressBar.getProgress()==100) {
-                                        break;
-                                    }
+//                            System.out.println("tmp"+tmp);
+//                            if(tmp > 0) {
+//
+//                                a = (int)(tmp/(0.15));
+//                                System.out.println("a"+a);
+//
+//
+//                                for(int i=0; i<a; i++) {
+//                                    if(ProgressbarForm.circleProgressBar.getProgress()==100) {
+//                                        break;
+//                                    }
+//
+//                                    runOnUiThread(new Runnable() {
+//                                        @Override
+//                                        public void run() {
+//                                            ProgressbarForm.circleProgressBar.setProgress(ProgressbarForm.circleProgressBar.getProgress()+1);
+//
+//                                        }
+//                                    });
+//
+//                                    try {
+//                                        Thread.sleep(100);
+//                                    } catch (InterruptedException e) {
+//                                        e.printStackTrace();
+//                                    }
+//                                }
+//                            }
+//                            else {
+//                                b = (int)(tmp/(0.15)*-1);
+//                                System.out.println("b"+b);
+//
+//                                for(int i=0; i<b; i++) {
+//                                    if(ProgressbarForm.circleProgressBar.getProgress()==0) {
+//                                        break;
+//                                    }
+//                                    runOnUiThread(new Runnable() {
+//                                        @Override
+//                                        public void run() {
+//                                            ProgressbarForm.circleProgressBar.setProgress(ProgressbarForm.circleProgressBar.getProgress()-1);
+//                                        }
+//                                    });
+//
+//                                    try {
+//                                        Thread.sleep(100);
+//                                    } catch (InterruptedException e) {
+//                                        e.printStackTrace();
+//                                    }
+//                                }
+//                            }
 
-                                    runOnUiThread(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            ProgressbarForm.circleProgressBar.setProgress(ProgressbarForm.circleProgressBar.getProgress()+1);
-                                        }
-                                    });
-
-                                    try {
-                                        Thread.sleep(100);
-                                    } catch (InterruptedException e) {
-                                        e.printStackTrace();
-                                    }
-                                }
-                            }
-                            else {
-                                b = (int)(tmp/(0.15)*-1);
-                                System.out.println("b"+b);
-
-                                for(int i=0; i<b; i++) {
-                                    if(ProgressbarForm.circleProgressBar.getProgress()==0) {
-                                        break;
-                                    }
-                                    runOnUiThread(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            ProgressbarForm.circleProgressBar.setProgress(ProgressbarForm.circleProgressBar.getProgress()-1);
-                                        }
-                                    });
-
-                                    try {
-                                        Thread.sleep(100);
-                                    } catch (InterruptedException e) {
-                                        e.printStackTrace();
-                                    }
-                                }
-                            }
                             progress_rssi = filtered_rssi;
                         }
                         control = 0;
