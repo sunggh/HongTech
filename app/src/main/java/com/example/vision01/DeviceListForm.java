@@ -368,6 +368,7 @@ public class DeviceListForm extends AppCompatActivity {
         notificationManager.notify(1, builder.build());
     }
     public void getFindForm() {
+        this.BTAdapter.cancelDiscovery();
         Intent intent = new Intent(getApplicationContext(), FindForm.class);
         startActivity(intent);
     }

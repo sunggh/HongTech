@@ -1,0 +1,2055 @@
+Index: app/src/main/java/com/example/vision01/ARCamera.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.vision01;\r\n\r\nimport android.bluetooth.BluetoothDevice;\r\nimport android.content.BroadcastReceiver;\r\nimport android.content.Context;\r\nimport android.content.Intent;\r\nimport android.media.Image;\r\nimport android.opengl.GLES30;\r\nimport android.opengl.Matrix;\r\nimport android.os.Bundle;\r\nimport android.widget.Toast;\r\n\r\nimport com.example.vision01.common.helpers.CameraPermissionHelper;\r\nimport com.example.vision01.common.helpers.DepthSettings;\r\nimport com.example.vision01.common.helpers.DisplayRotationHelper;\r\nimport com.example.vision01.common.helpers.InstantPlacementSettings;\r\nimport com.example.vision01.common.helpers.SnackbarHelper;\r\nimport com.example.vision01.common.helpers.TapHelper;\r\nimport com.example.vision01.common.helpers.TrackingStateHelper;\r\nimport com.example.vision01.common.hongtech.Framebuffer;\r\nimport com.example.vision01.common.hongtech.GLError;\r\nimport com.example.vision01.common.hongtech.Mesh;\r\nimport com.example.vision01.common.hongtech.RenderingHelper;\r\nimport com.example.vision01.common.hongtech.Shader;\r\nimport com.example.vision01.common.hongtech.Texture;\r\nimport com.example.vision01.common.hongtech.VertexBuffer;\r\nimport com.example.vision01.common.hongtech.arcore.BackgroundRenderer;\r\nimport com.example.vision01.common.hongtech.arcore.PlaneRenderer;\r\nimport com.example.vision01.common.hongtech.arcore.SpecularCubemapFilter;\r\nimport com.google.ar.core.Anchor;\r\nimport com.google.ar.core.ArCoreApk;\r\nimport com.google.ar.core.Camera;\r\nimport com.google.ar.core.Config;\r\nimport com.google.ar.core.Frame;\r\nimport com.google.ar.core.HitResult;\r\nimport com.google.ar.core.InstantPlacementPoint;\r\nimport com.google.ar.core.LightEstimate;\r\nimport com.google.ar.core.Plane;\r\nimport com.google.ar.core.Point;\r\nimport com.google.ar.core.PointCloud;\r\nimport com.google.ar.core.Session;\r\nimport com.google.ar.core.Trackable;\r\nimport com.google.ar.core.TrackingFailureReason;\r\nimport com.google.ar.core.TrackingState;\r\nimport com.google.ar.core.exceptions.CameraNotAvailableException;\r\nimport com.google.ar.core.exceptions.NotYetAvailableException;\r\nimport com.google.ar.core.exceptions.UnavailableApkTooOldException;\r\nimport com.google.ar.core.exceptions.UnavailableArcoreNotInstalledException;\r\nimport com.google.ar.core.exceptions.UnavailableDeviceNotCompatibleException;\r\nimport com.google.ar.core.exceptions.UnavailableSdkTooOldException;\r\nimport com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException;\r\n\r\nimport android.view.MotionEvent;\r\n\r\nimport androidx.appcompat.app.AppCompatActivity;\r\n\r\nimport java.io.IOException;\r\nimport java.io.InputStream;\r\n\r\nimport java.nio.ByteBuffer;\r\nimport java.util.ArrayList;\r\nimport java.util.HashMap;\r\nimport java.util.List;\r\n\r\nimport android.opengl.GLSurfaceView;\r\n\r\npublic class ARCamera extends AppCompatActivity implements RenderingHelper.Renderer{\r\n\r\n    private RenderingHelper render;\r\n    private GLSurfaceView surfaceView;\r\n    private boolean installRequested;\r\n\r\n    private PlaneRenderer planeRenderer;\r\n    private BackgroundRenderer backgroundRenderer;\r\n    private Framebuffer virtualSceneFramebuffer;\r\n    private boolean hasSetTextureNames = false;\r\n    private DisplayRotationHelper displayRotationHelper;\r\n    private Texture dfgTexture;\r\n    private SpecularCubemapFilter cubemapFilter;\r\n\r\n    private static final int CUBEMAP_RESOLUTION = 16;\r\n    private static final int CUBEMAP_NUMBER_OF_IMPORTANCE_SAMPLES = 32;\r\n\r\n    private VertexBuffer pointCloudVertexBuffer;\r\n    private Mesh pointCloudMesh;\r\n    private Shader pointCloudShader;\r\n\r\n    private Mesh virtualObjectMesh;\r\n    private Shader virtualObjectShader;\r\n    private final ArrayList<Anchor> anchors = new ArrayList<>();\r\n\r\n    private final DepthSettings depthSettings = new DepthSettings();\r\n    private boolean[] depthSettingsMenuDialogCheckboxes = new boolean[2];\r\n\r\n    private final TrackingStateHelper trackingStateHelper = new TrackingStateHelper(this);\r\n\r\n    private static final String SEARCHING_PLANE_MESSAGE = \"Searching for surfaces...\";\r\n    private static final String WAITING_FOR_TAP_MESSAGE = \"Tap on a surface to place an object.\";\r\n\r\n    private final SnackbarHelper messageSnackbarHelper = new SnackbarHelper();\r\n\r\n    private final float[] modelMatrix = new float[16];\r\n    private final float[] viewMatrix = new float[16];\r\n    private final float[] projectionMatrix = new float[16];\r\n    private final float[] modelViewMatrix = new float[16]; // view x model\r\n    private final float[] modelViewProjectionMatrix = new float[16]; // projection x view x model\r\n    private final float[] sphericalHarmonicsCoefficients = new float[9 * 3];\r\n    private final float[] viewInverseMatrix = new float[16];\r\n    private final float[] worldLightDirection = {0.0f, 0.0f, 0.0f, 0.0f};\r\n    private final float[] viewLightDirection = new float[4]; // view x world light direction\r\n\r\n    private long lastPointCloudTimestamp = 0;\r\n\r\n    private static final float Z_NEAR = 0.1f;\r\n    private static final float Z_FAR = 100f;\r\n\r\n    private final InstantPlacementSettings instantPlacementSettings = new InstantPlacementSettings();\r\n    private boolean[] instantPlacementSettingsMenuDialogCheckboxes = new boolean[1];\r\n\r\n    private static final float APPROXIMATE_DISTANCE_METERS = 2.0f;\r\n\r\n    private TapHelper tapHelper;\r\n\r\n    private Session session;\r\n\r\n    @Override\r\n    protected void onCreate(Bundle savedInstanceState) {\r\n        super.onCreate(savedInstanceState);\r\n        //registerReceiver(receiver, new IntentFilter(BluetoothDevice.ACTION_FOUND));\r\n        setContentView(R.layout.activity_a_r_camera);\r\n        surfaceView = findViewById(R.id.surfaceview);\r\n\r\n        displayRotationHelper = new DisplayRotationHelper(/*context=*/ this);\r\n\r\n        installRequested = false;\r\n\r\n        render = new RenderingHelper(surfaceView, this, getAssets());\r\n\r\n        depthSettings.onCreate(this);\r\n\r\n        instantPlacementSettings.onCreate(this);\r\n\r\n        tapHelper = new TapHelper(/*context=*/ this);\r\n       // surfaceView.setOnTouchListener(tapHelper);\r\n    }\r\n\r\n    private final BroadcastReceiver receiver = new BroadcastReceiver(){\r\n        @Override\r\n        public void onReceive(Context context, Intent intent) {\r\n\r\n            String action = intent.getAction();\r\n            if(BluetoothDevice.ACTION_FOUND.equals(action)) {\r\n                int rssi = intent.getShortExtra(BluetoothDevice.EXTRA_RSSI,Short.MIN_VALUE);\r\n                Toast.makeText(getApplicationContext(),\"  RSSI: \" + rssi + \"dBm\", Toast.LENGTH_SHORT).show();\r\n            }\r\n        }\r\n    };\r\n\r\n    @Override\r\n    public void onSurfaceChanged(RenderingHelper render, int width, int height) {\r\n        displayRotationHelper.onSurfaceChanged(width, height);\r\n        virtualSceneFramebuffer.resize(width, height);\r\n    }\r\n\r\n    @Override\r\n    public void onSurfaceCreated(RenderingHelper render) {\r\n        // Prepare the rendering objects. This involves reading shaders and 3D model files, so may throw\r\n        // an IOException.\r\n        try {\r\n            planeRenderer = new PlaneRenderer(render);\r\n            backgroundRenderer = new BackgroundRenderer(render);\r\n            virtualSceneFramebuffer = new Framebuffer(render, /*width=*/ 1, /*height=*/ 1);\r\n\r\n            cubemapFilter =\r\n                    new SpecularCubemapFilter(\r\n                            render, CUBEMAP_RESOLUTION, CUBEMAP_NUMBER_OF_IMPORTANCE_SAMPLES);\r\n            // Load DFG lookup table for environmental lighting\r\n            dfgTexture =\r\n                    new Texture(\r\n                            render,\r\n                            Texture.Target.TEXTURE_2D,\r\n                            Texture.WrapMode.CLAMP_TO_EDGE,\r\n                            /*useMipmaps=*/ false);\r\n            // The dfg.raw file is a raw half-float texture with two channels.\r\n            final int dfgResolution = 64;\r\n            final int dfgChannels = 2;\r\n            final int halfFloatSize = 2;\r\n\r\n            ByteBuffer buffer =\r\n                    ByteBuffer.allocateDirect(dfgResolution * dfgResolution * dfgChannels * halfFloatSize);\r\n            try (InputStream is = getAssets().open(\"models/dfg.raw\")) {\r\n                is.read(buffer.array());\r\n            }\r\n            // SampleRender abstraction leaks here.\r\n            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, dfgTexture.getTextureId());\r\n            GLError.maybeThrowGLException(\"Failed to bind DFG texture\", \"glBindTexture\");\r\n            GLES30.glTexImage2D(\r\n                    GLES30.GL_TEXTURE_2D,\r\n                    /*level=*/ 0,\r\n                    GLES30.GL_RG16F,\r\n                    /*width=*/ dfgResolution,\r\n                    /*height=*/ dfgResolution,\r\n                    /*border=*/ 0,\r\n                    GLES30.GL_RG,\r\n                    GLES30.GL_HALF_FLOAT,\r\n                    buffer);\r\n            GLError.maybeThrowGLException(\"Failed to populate DFG texture\", \"glTexImage2D\");\r\n\r\n            // Point cloud\r\n            pointCloudShader =\r\n                    Shader.createFromAssets(\r\n                            render, \"shaders/point_cloud.vert\", \"shaders/point_cloud.frag\", /*defines=*/ null)\r\n                            .setVec4(\r\n                                    \"u_Color\", new float[] {31.0f / 255.0f, 188.0f / 255.0f, 210.0f / 255.0f, 1.0f})\r\n                            .setFloat(\"u_PointSize\", 5.0f);\r\n            // four entries per vertex: X, Y, Z, confidence\r\n            pointCloudVertexBuffer =\r\n                    new VertexBuffer(render, /*numberOfEntriesPerVertex=*/ 4, /*entries=*/ null);\r\n            final VertexBuffer[] pointCloudVertexBuffers = {pointCloudVertexBuffer};\r\n            pointCloudMesh =\r\n                    new Mesh(\r\n                            render, Mesh.PrimitiveMode.POINTS, /*indexBuffer=*/ null, pointCloudVertexBuffers);\r\n\r\n            // Virtual object to render (ARCore pawn)\r\n            Texture virtualObjectAlbedoTexture =\r\n                    Texture.createFromAsset(\r\n                            render,\r\n                            \"models/pawn_albedo.png\",\r\n                            Texture.WrapMode.CLAMP_TO_EDGE,\r\n                            Texture.ColorFormat.SRGB);\r\n            Texture virtualObjectPbrTexture =\r\n                    Texture.createFromAsset(\r\n                            render,\r\n                            \"models/pawn_roughness_metallic_ao.png\",\r\n                            Texture.WrapMode.CLAMP_TO_EDGE,\r\n                            Texture.ColorFormat.LINEAR);\r\n            virtualObjectMesh = Mesh.createFromAsset(render, \"models/pawn.obj\");\r\n            virtualObjectShader =\r\n                    Shader.createFromAssets(\r\n                            render,\r\n                            \"shaders/environmental_hdr.vert\",\r\n                            \"shaders/environmental_hdr.frag\",\r\n                            /*defines=*/ new HashMap<String, String>() {\r\n                                {\r\n                                    put(\r\n                                            \"NUMBER_OF_MIPMAP_LEVELS\",\r\n                                            Integer.toString(cubemapFilter.getNumberOfMipmapLevels()));\r\n                                }\r\n                            })\r\n                            .setTexture(\"u_AlbedoTexture\", virtualObjectAlbedoTexture)\r\n                            .setTexture(\"u_RoughnessMetallicAmbientOcclusionTexture\", virtualObjectPbrTexture)\r\n                            .setTexture(\"u_Cubemap\", cubemapFilter.getFilteredCubemapTexture())\r\n                            .setTexture(\"u_DfgTexture\", dfgTexture);\r\n        } catch (IOException e) {\r\n            //Log.e(TAG, \"Failed to read a required asset file\", e);\r\n            //messageSnackbarHelper.showError(this, \"Failed to read a required asset file: \" + e);\r\n        }\r\n    }\r\n\r\n    private boolean hasTrackingPlane() {\r\n        for (Plane plane : session.getAllTrackables(Plane.class)) {\r\n            if (plane.getTrackingState() == TrackingState.TRACKING) {\r\n                return true;\r\n            }\r\n        }\r\n        return false;\r\n    }\r\n\r\n    private void updateLightEstimation(LightEstimate lightEstimate, float[] viewMatrix) {\r\n        if (lightEstimate.getState() != LightEstimate.State.VALID) {\r\n            virtualObjectShader.setBool(\"u_LightEstimateIsValid\", false);\r\n            return;\r\n        }\r\n        virtualObjectShader.setBool(\"u_LightEstimateIsValid\", true);\r\n\r\n        Matrix.invertM(viewInverseMatrix, 0, viewMatrix, 0);\r\n        virtualObjectShader.setMat4(\"u_ViewInverse\", viewInverseMatrix);\r\n\r\n        updateMainLight(\r\n                lightEstimate.getEnvironmentalHdrMainLightDirection(),\r\n                lightEstimate.getEnvironmentalHdrMainLightIntensity(),\r\n                viewMatrix);\r\n        updateSphericalHarmonicsCoefficients(\r\n                lightEstimate.getEnvironmentalHdrAmbientSphericalHarmonics());\r\n        cubemapFilter.update(lightEstimate.acquireEnvironmentalHdrCubeMap());\r\n    }\r\n\r\n    private void updateMainLight(float[] direction, float[] intensity, float[] viewMatrix) {\r\n        // We need the direction in a vec4 with 0.0 as the final component to transform it to view space\r\n        worldLightDirection[0] = direction[0];\r\n        worldLightDirection[1] = direction[1];\r\n        worldLightDirection[2] = direction[2];\r\n        Matrix.multiplyMV(viewLightDirection, 0, viewMatrix, 0, worldLightDirection, 0);\r\n        virtualObjectShader.setVec4(\"u_ViewLightDirection\", viewLightDirection);\r\n        virtualObjectShader.setVec3(\"u_LightIntensity\", intensity);\r\n    }\r\n\r\n    private void updateSphericalHarmonicsCoefficients(float[] coefficients) {\r\n        // Pre-multiply the spherical harmonics coefficients before passing them to the shader. The\r\n        // constants in sphericalHarmonicFactors were derived from three terms:\r\n        //\r\n        // 1. The normalized spherical harmonics basis functions (y_lm)\r\n        //\r\n        // 2. The lambertian diffuse BRDF factor (1/pi)\r\n        //\r\n        // 3. A <cos> convolution. This is done to so that the resulting function outputs the irradiance\r\n        // of all incoming light over a hemisphere for a given surface normal, which is what the shader\r\n        // (environmental_hdr.frag) expects.\r\n        //\r\n        // You can read more details about the math here:\r\n        // https://google.github.io/filament/Filament.html#annex/sphericalharmonics\r\n\r\n        if (coefficients.length != 9 * 3) {\r\n            throw new IllegalArgumentException(\r\n                    \"The given coefficients array must be of length 27 (3 components per 9 coefficients\");\r\n        }\r\n\r\n        // Apply each factor to every component of each coefficient\r\n        for (int i = 0; i < 9 * 3; ++i) {\r\n            sphericalHarmonicsCoefficients[i] = coefficients[i] * sphericalHarmonicFactors[i / 3];\r\n        }\r\n        virtualObjectShader.setVec3Array(\r\n                \"u_SphericalHarmonicsCoefficients\", sphericalHarmonicsCoefficients);\r\n    }\r\n\r\n    private static final float[] sphericalHarmonicFactors = {\r\n            0.282095f,\r\n            -0.325735f,\r\n            0.325735f,\r\n            -0.325735f,\r\n            0.273137f,\r\n            -0.273137f,\r\n            0.078848f,\r\n            -0.273137f,\r\n            0.136569f,\r\n    };\r\n\r\n    @Override\r\n    public void onDrawFrame(RenderingHelper render) {\r\n        if (session == null) {\r\n            return;\r\n        }\r\n\r\n        // Texture names should only be set once on a GL thread unless they change. This is done during\r\n        // onDrawFrame rather than onSurfaceCreated since the session is not guaranteed to have been\r\n        // initialized during the execution of onSurfaceCreated.\r\n        if (!hasSetTextureNames) {\r\n            session.setCameraTextureNames(\r\n                    new int[] {backgroundRenderer.getCameraColorTexture().getTextureId()});\r\n            hasSetTextureNames = true;\r\n        }\r\n\r\n        // -- Update per-frame state\r\n\r\n        // Notify ARCore session that the view size changed so that the perspective matrix and\r\n        // the video background can be properly adjusted.\r\n        displayRotationHelper.updateSessionIfNeeded(session);\r\n\r\n        // Obtain the current frame from ARSession. When the configuration is set to\r\n        // UpdateMode.BLOCKING (it is by default), this will throttle the rendering to the\r\n        // camera framerate.\r\n        Frame frame;\r\n        try {\r\n            frame = session.update();\r\n        } catch (CameraNotAvailableException e) {\r\n            //Log.e(TAG, \"Camera not available during onDrawFrame\", e);\r\n            //messageSnackbarHelper.showError(this, \"Camera not available. Try restarting the app.\");\r\n            return;\r\n        }\r\n        Camera camera = frame.getCamera();\r\n\r\n        // Update BackgroundRenderer state to match the depth settings.\r\n        try {\r\n            backgroundRenderer.setUseDepthVisualization(\r\n                    render, depthSettings.depthColorVisualizationEnabled());\r\n            backgroundRenderer.setUseOcclusion(render, depthSettings.useDepthForOcclusion());\r\n        } catch (IOException e) {\r\n            //Log.e(TAG, \"Failed to read a required asset file\", e);\r\n            //messageSnackbarHelper.showError(this, \"Failed to read a required asset file: \" + e);\r\n            return;\r\n        }\r\n        // BackgroundRenderer.updateDisplayGeometry must be called every frame to update the coordinates\r\n        // used to draw the background camera image.\r\n        backgroundRenderer.updateDisplayGeometry(frame);\r\n\r\n        if (camera.getTrackingState() == TrackingState.TRACKING\r\n                && (depthSettings.useDepthForOcclusion()\r\n                || depthSettings.depthColorVisualizationEnabled())) {\r\n            try (Image depthImage = frame.acquireDepthImage()) {\r\n                backgroundRenderer.updateCameraDepthTexture(depthImage);\r\n            } catch (NotYetAvailableException e) {\r\n                // This normally means that depth data is not available yet. This is normal so we will not\r\n                // spam the logcat with this.\r\n            }\r\n        }\r\n\r\n        // Handle one tap per frame.\r\n        handleTap(frame, camera);\r\n\r\n        // Keep the screen unlocked while tracking, but allow it to lock when tracking stops.\r\n        trackingStateHelper.updateKeepScreenOnFlag(camera.getTrackingState());\r\n\r\n        // Show a message based on whether tracking has failed, if planes are detected, and if the user\r\n        // has placed any objects.\r\n        String message = null;\r\n        if (camera.getTrackingState() == TrackingState.PAUSED) {\r\n            if (camera.getTrackingFailureReason() == TrackingFailureReason.NONE) {\r\n                message = SEARCHING_PLANE_MESSAGE;\r\n            } else {\r\n                message = TrackingStateHelper.getTrackingFailureReasonString(camera);\r\n            }\r\n        } else if (hasTrackingPlane()) {\r\n            if (anchors.isEmpty()) {\r\n                message = WAITING_FOR_TAP_MESSAGE;\r\n            }\r\n        } else {\r\n            message = SEARCHING_PLANE_MESSAGE;\r\n        }\r\n        if (message == null) {\r\n            messageSnackbarHelper.hide(this);\r\n        } else {\r\n            messageSnackbarHelper.showMessage(this, message);\r\n        }\r\n\r\n        // -- Draw background\r\n\r\n        if (frame.getTimestamp() != 0) {\r\n            // Suppress rendering if the camera did not produce the first frame yet. This is to avoid\r\n            // drawing possible leftover data from previous sessions if the texture is reused.\r\n            backgroundRenderer.drawBackground(render);\r\n        }\r\n\r\n        // If not tracking, don't draw 3D objects.\r\n        if (camera.getTrackingState() == TrackingState.PAUSED) {\r\n            return;\r\n        }\r\n\r\n        // -- Draw non-occluded virtual objects (planes, point cloud)\r\n\r\n        // Get projection matrix.\r\n        camera.getProjectionMatrix(projectionMatrix, 0, Z_NEAR, Z_FAR);\r\n\r\n        // Get camera matrix and draw.\r\n        camera.getViewMatrix(viewMatrix, 0);\r\n\r\n        // Visualize tracked points.\r\n        // Use try-with-resources to automatically release the point cloud.\r\n        try (PointCloud pointCloud = frame.acquirePointCloud()) {\r\n            if (pointCloud.getTimestamp() > lastPointCloudTimestamp) {\r\n                pointCloudVertexBuffer.set(pointCloud.getPoints());\r\n                lastPointCloudTimestamp = pointCloud.getTimestamp();\r\n            }\r\n            Matrix.multiplyMM(modelViewProjectionMatrix, 0, projectionMatrix, 0, viewMatrix, 0);\r\n            pointCloudShader.setMat4(\"u_ModelViewProjection\", modelViewProjectionMatrix);\r\n            render.draw(pointCloudMesh, pointCloudShader);\r\n        }\r\n\r\n        // Visualize planes.\r\n        planeRenderer.drawPlanes(\r\n                render,\r\n                session.getAllTrackables(Plane.class),\r\n                camera.getDisplayOrientedPose(),\r\n                projectionMatrix);\r\n\r\n        // -- Draw occluded virtual objects\r\n\r\n        // Update lighting parameters in the shader\r\n        updateLightEstimation(frame.getLightEstimate(), viewMatrix);\r\n\r\n        // Visualize anchors created by touch.\r\n        render.clear(virtualSceneFramebuffer, 0f, 0f, 0f, 0f);\r\n        for (Anchor anchor : anchors) {\r\n            if (anchor.getTrackingState() != TrackingState.TRACKING) {\r\n                continue;\r\n            }\r\n\r\n            // Get the current pose of an Anchor in world space. The Anchor pose is updated\r\n            // during calls to session.update() as ARCore refines its estimate of the world.\r\n            anchor.getPose().toMatrix(modelMatrix, 0);\r\n\r\n            // Calculate model/view/projection matrices\r\n            Matrix.multiplyMM(modelViewMatrix, 0, viewMatrix, 0, modelMatrix, 0);\r\n            Matrix.multiplyMM(modelViewProjectionMatrix, 0, projectionMatrix, 0, modelViewMatrix, 0);\r\n\r\n            // Update shader properties and draw\r\n            virtualObjectShader.setMat4(\"u_ModelView\", modelViewMatrix);\r\n            virtualObjectShader.setMat4(\"u_ModelViewProjection\", modelViewProjectionMatrix);\r\n            render.draw(virtualObjectMesh, virtualObjectShader, virtualSceneFramebuffer);\r\n        }\r\n\r\n        // Compose the virtual scene with the background.\r\n        backgroundRenderer.drawVirtualScene(render, virtualSceneFramebuffer, Z_NEAR, Z_FAR);\r\n    }\r\n\r\n    // Handle only one tap per frame, as taps are usually low frequency compared to frame rate.\r\n    private void handleTap(Frame frame, Camera camera) {\r\n        MotionEvent tap = tapHelper.poll();\r\n        if (tap != null && camera.getTrackingState() == TrackingState.TRACKING) {\r\n            List<HitResult> hitResultList;\r\n            if (instantPlacementSettings.isInstantPlacementEnabled()) {\r\n                hitResultList =\r\n                        frame.hitTestInstantPlacement(tap.getX(), tap.getY(), APPROXIMATE_DISTANCE_METERS);\r\n            } else {\r\n                hitResultList = frame.hitTest(tap);\r\n            }\r\n\r\n            for (HitResult hit : hitResultList) {\r\n                // If any plane, Oriented Point, or Instant Placement Point was hit, create an anchor.\r\n                Trackable trackable = hit.getTrackable();\r\n                // If a plane was hit, check that it was hit inside the plane polygon.\r\n                if ((trackable instanceof Plane\r\n                        && ((Plane) trackable).isPoseInPolygon(hit.getHitPose())\r\n                        && (PlaneRenderer.calculateDistanceToPlane(hit.getHitPose(), camera.getPose()) > 0))\r\n                        || (trackable instanceof Point\r\n                        && ((Point) trackable).getOrientationMode()\r\n                        == Point.OrientationMode.ESTIMATED_SURFACE_NORMAL)\r\n                        || (trackable instanceof InstantPlacementPoint)) {\r\n                    // Cap the number of objects created. This avoids overloading both the\r\n                    // rendering system and ARCore.\r\n                    if (anchors.size() >= 20) {\r\n                        anchors.get(0).detach();\r\n                        anchors.remove(0);\r\n                    }\r\n\r\n                    // Adding an Anchor tells ARCore that it should track this position in\r\n                    // space. This anchor is created on the Plane to place the 3D model\r\n                    // in the correct position relative both to the world and to the plane.\r\n                    anchors.add(hit.createAnchor());\r\n                    // For devices that support the Depth API, shows a dialog to suggest enabling\r\n                    // depth-based occlusion. This dialog needs to be spawned on the UI thread.\r\n                    //this.runOnUiThread(this::showOcclusionDialogIfNeeded);\r\n\r\n                    // Hits are sorted by depth. Consider only closest hit on a plane, Oriented Point, or\r\n                    // Instant Placement Point.\r\n                    break;\r\n                }\r\n            }\r\n        }\r\n    }\r\n\r\n    @Override\r\n    protected void onDestroy() {\r\n        if (session != null) {\r\n            // Explicitly close ARCore Session to release native resources.\r\n            // Review the API reference for important considerations before calling close() in apps with\r\n            // more complicated lifecycle requirements:\r\n            // https://developers.google.com/ar/reference/java/arcore/reference/com/google/ar/core/Session#close()\r\n            session.close();\r\n            session = null;\r\n        }\r\n\r\n        super.onDestroy();\r\n    }\r\n\r\n    @Override\r\n    protected void onResume() {\r\n        super.onResume();\r\n\r\n        if (session == null) {\r\n            Exception exception = null;\r\n            String message = null;\r\n            try {\r\n                switch (ArCoreApk.getInstance().requestInstall(this, !installRequested)) {\r\n                    case INSTALL_REQUESTED:\r\n                        installRequested = true;\r\n                        return;\r\n                    case INSTALLED:\r\n                        break;\r\n                }\r\n\r\n                // ARCore requires camera permissions to operate. If we did not yet obtain runtime\r\n                // permission on Android M and above, now is a good time to ask the user for it.\r\n                if (!CameraPermissionHelper.hasCameraPermission(this)) {\r\n                    CameraPermissionHelper.requestCameraPermission(this);\r\n                    return;\r\n                }\r\n\r\n                // Create the session.\r\n                session = new Session(/* context= */ this);\r\n            } catch (UnavailableArcoreNotInstalledException\r\n                    | UnavailableUserDeclinedInstallationException e) {\r\n                message = \"Please install ARCore\";\r\n                exception = e;\r\n            } catch (UnavailableApkTooOldException e) {\r\n                message = \"Please update ARCore\";\r\n                exception = e;\r\n            } catch (UnavailableSdkTooOldException e) {\r\n                message = \"Please update this app\";\r\n                exception = e;\r\n            } catch (UnavailableDeviceNotCompatibleException e) {\r\n                message = \"This device does not support AR\";\r\n                exception = e;\r\n            } catch (Exception e) {\r\n                message = \"Failed to create AR session\";\r\n                exception = e;\r\n            }\r\n\r\n            if (message != null) {\r\n                //messageSnackbarHelper.showError(this, message);\r\n                //Log.e(TAG, \"Exception creating session\", exception);\r\n                return;\r\n            }\r\n        }\r\n\r\n        // Note that order matters - see the note in onPause(), the reverse applies here.\r\n        try {\r\n            configureSession();\r\n            // To record a live camera session for later playback, call\r\n            // `session.startRecording(recorderConfig)` at anytime. To playback a previously recorded AR\r\n            // session instead of using the live camera feed, call\r\n            // `session.setPlaybackDataset(playbackDatasetPath)` before calling `session.resume()`. To\r\n            // learn more about recording and playback, see:\r\n            // https://developers.google.com/ar/develop/java/recording-and-playback\r\n            session.resume();\r\n        } catch (CameraNotAvailableException e) {\r\n            messageSnackbarHelper.showError(this, \"Camera not available. Try restarting the app.\");\r\n            session = null;\r\n            return;\r\n        }\r\n\r\n        surfaceView.onResume();\r\n        displayRotationHelper.onResume();\r\n    }\r\n\r\n    private void configureSession() {\r\n        Config config = session.getConfig();\r\n        config.setLightEstimationMode(Config.LightEstimationMode.ENVIRONMENTAL_HDR);\r\n        if (session.isDepthModeSupported(Config.DepthMode.AUTOMATIC)) {\r\n            config.setDepthMode(Config.DepthMode.AUTOMATIC);\r\n        } else {\r\n            config.setDepthMode(Config.DepthMode.DISABLED);\r\n        }\r\n        if (instantPlacementSettings.isInstantPlacementEnabled()) {\r\n            config.setInstantPlacementMode(Config.InstantPlacementMode.LOCAL_Y_UP);\r\n        } else {\r\n            config.setInstantPlacementMode(Config.InstantPlacementMode.DISABLED);\r\n        }\r\n        session.configure(config);\r\n    }\r\n\r\n    @Override\r\n    public void onPause() {\r\n        super.onPause();\r\n        if (session != null) {\r\n            // Note that the order matters - GLSurfaceView is paused first so that it does not try\r\n            // to query the session. If Session is paused before GLSurfaceView, GLSurfaceView may\r\n            // still call session.update() and get a SessionPausedException.\r\n            displayRotationHelper.onPause();\r\n            surfaceView.onPause();\r\n            session.pause();\r\n        }\r\n    }\r\n\r\n    @Override\r\n    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {\r\n        super.onRequestPermissionsResult(requestCode, permissions, results);\r\n        if (!CameraPermissionHelper.hasCameraPermission(this)) {\r\n            // Use toast instead of snackbar here since the activity will exit.\r\n            Toast.makeText(this, \"Camera permission is needed to run this application\", Toast.LENGTH_LONG)\r\n                    .show();\r\n            if (!CameraPermissionHelper.shouldShowRequestPermissionRationale(this)) {\r\n                // Permission denied with checking \"Do not ask again\".\r\n                CameraPermissionHelper.launchPermissionSettings(this);\r\n            }\r\n            finish();\r\n        }\r\n    }\r\n}
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/com/example/vision01/ARCamera.java	(revision 40c29a94be874f38212b2eab60dabf13bea032d8)
++++ app/src/main/java/com/example/vision01/ARCamera.java	(date 1620459655483)
+@@ -64,6 +64,8 @@
+ 
+ import android.opengl.GLSurfaceView;
+ 
++import com.google.ar.core.Config.PlaneFindingMode;
++
+ public class ARCamera extends AppCompatActivity implements RenderingHelper.Renderer{
+ 
+     private RenderingHelper render;
+@@ -123,6 +125,7 @@
+ 
+     private Session session;
+ 
++
+     @Override
+     protected void onCreate(Bundle savedInstanceState) {
+         super.onCreate(savedInstanceState);
+Index: app/src/main/java/com/example/vision01/FindForm.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.vision01;\r\n\r\nimport android.app.Activity;\r\nimport android.content.Context;\r\nimport android.content.Intent;\r\n//import android.graphics.Camera;\r\nimport android.hardware.camera2.CameraDevice;\r\nimport android.hardware.Camera;\r\nimport android.os.Build;\r\nimport android.os.Bundle;\r\nimport android.util.AttributeSet;\r\nimport android.view.SurfaceHolder;\r\nimport android.view.SurfaceView;\r\nimport android.view.View;\r\nimport android.view.animation.Animation;\r\nimport android.view.animation.AnimationUtils;\r\nimport android.widget.Button;\r\nimport android.widget.ImageView;\r\nimport android.widget.Toast;\r\n\r\nimport android.Manifest;\r\nimport android.content.Context;\r\nimport android.content.pm.PackageManager;\r\nimport android.os.Bundle;\r\nimport android.view.SurfaceHolder;\r\nimport android.view.SurfaceView;\r\nimport android.widget.FrameLayout;\r\nimport android.widget.Toast;\r\n\r\nimport androidx.appcompat.app.AppCompatActivity;\r\nimport androidx.core.app.ActivityCompat;\r\nimport androidx.core.content.ContextCompat;\r\n\r\nimport java.io.IOException;\r\n\r\npublic class FindForm extends AppCompatActivity {\r\n\r\n    private Button findButton;\r\n//    private SurfaceView surfaceView;\r\n//    private SurfaceHolder surfaceHolder;\r\n//    private Camera camera;\r\n\r\n    SurfaceView pc;\r\n\r\n    @Override\r\n    protected void onCreate(Bundle savedInstanceState) {\r\n        super.onCreate(savedInstanceState);\r\n        setContentView(R.layout.activity_rotation_request);\r\n\r\n//        surfaceView = (SurfaceView)findViewById(R.id.surfaceView_cam);\r\n//        surfaceHolder = surfaceView.getHolder();\r\n//        surfaceHolder.addCallback(surfaceListener);\r\n\r\n        pc = findViewById(R.id.surfaceView_cam);\r\n\r\n        //동적퍼미션 작업\r\n        if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.M){\r\n            int permissionResult= checkSelfPermission(Manifest.permission.CAMERA);\r\n            if(permissionResult== PackageManager.PERMISSION_DENIED){\r\n                String[] permissions= new String[]{Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE};\r\n                requestPermissions(permissions,10);\r\n            }\r\n        }else{\r\n            pc.setVisibility(View.VISIBLE);\r\n        }\r\n\r\n        findButton = (Button)findViewById(R.id.button_find);\r\n        final ImageView arrow_image = (ImageView)findViewById(R.id.right_arrow);\r\n\r\n        findButton.setOnClickListener(new View.OnClickListener(){\r\n            @Override\r\n            public void onClick(View v) {\r\n                arrow_image.setVisibility(View.VISIBLE);\r\n                Animation animation = AnimationUtils.loadAnimation(getApplicationContext(),R.anim.translate);\r\n                arrow_image.startAnimation(animation);\r\n            }\r\n        });\r\n    }\r\n\r\n//    private SurfaceHolder.Callback surfaceListener = new SurfaceHolder.Callback() {\r\n//\r\n//        @Override//액티비티가 비활성 상태일 때 화면에 표시X\r\n//        public void surfaceDestroyed(SurfaceHolder holder) {\r\n//            camera.release();\r\n//        }\r\n//\r\n//        @Override\r\n//        public void surfaceCreated(SurfaceHolder holder) {\r\n//            //카메라 객체를 받아와 카메라로부터 영상을 받을수있도록 초기화\r\n//            camera = Camera.open();\r\n//            try {\r\n//                camera.setPreviewDisplay(holder);\r\n//            } catch (IOException e) {\r\n//                // TODO Auto-generated catch block\r\n//                e.printStackTrace();\r\n//            }\r\n//        }\r\n//\r\n//        @Override//카메라 객체에서 프리뷰 영상을 표시할 영역의 크기 설정\r\n//        public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {\r\n//            Camera.Parameters parameters = camera.getParameters();\r\n//            parameters.setPreviewSize(w, h);\r\n//            camera.startPreview();\r\n//        }\r\n//    };\r\n}
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/com/example/vision01/FindForm.java	(revision 40c29a94be874f38212b2eab60dabf13bea032d8)
++++ app/src/main/java/com/example/vision01/FindForm.java	(date 1619532611584)
+@@ -35,6 +35,8 @@
+ 
+ public class FindForm extends AppCompatActivity {
+ 
++    private final int MY_PERMISSIONS_REQUEST_CAMERA=1001;
++
+     private Button findButton;
+ //    private SurfaceView surfaceView;
+ //    private SurfaceHolder surfaceHolder;
+@@ -54,14 +56,47 @@
+         pc = findViewById(R.id.surfaceView_cam);
+ 
+         //동적퍼미션 작업
+-        if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.M){
+-            int permissionResult= checkSelfPermission(Manifest.permission.CAMERA);
+-            if(permissionResult== PackageManager.PERMISSION_DENIED){
+-                String[] permissions= new String[]{Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE};
+-                requestPermissions(permissions,10);
++//        if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.M){
++//            int permissionResult= checkSelfPermission(Manifest.permission.CAMERA);
++//            if(permissionResult== PackageManager.PERMISSION_DENIED){
++//                String[] permissions= new String[]{Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE};
++//                requestPermissions(permissions,10);
++//            }
++//        }else{
++//            pc.setVisibility(View.VISIBLE);
++//        }
++
++        //퍼미션 작업
++        int permissionCheck = ContextCompat.checkSelfPermission(this,Manifest.permission.CAMERA);
++
++        if (permissionCheck!= PackageManager.PERMISSION_GRANTED) {
++
++            Toast.makeText(this,"권한 승인이 필요합니다",Toast.LENGTH_LONG).show();
++
++            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
++                    Manifest.permission.CAMERA)) {
++                Toast.makeText(this,"000부분 사용을 위해 카메라 권한이 필요합니다.",Toast.LENGTH_LONG).show();
++            } else {
++                ActivityCompat.requestPermissions(this,
++                        new String[]{Manifest.permission.CAMERA},
++                        MY_PERMISSIONS_REQUEST_CAMERA);
++                Toast.makeText(this,"000부분 사용을 위해 카메라 권한이 필요합니다.",Toast.LENGTH_LONG).show();
++
+             }
+-        }else{
+-            pc.setVisibility(View.VISIBLE);
++        }
++
++        //사용자가 권한을 거부하였을 때 true를 반환
++        if (ContextCompat.checkSelfPermission(this,
++                Manifest.permission.CAMERA)
++                != PackageManager.PERMISSION_GRANTED) {
++
++            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
++                    Manifest.permission.CAMERA)) {
++            } else {
++                ActivityCompat.requestPermissions(this,
++                        new String[]{Manifest.permission.CAMERA},
++                        MY_PERMISSIONS_REQUEST_CAMERA);
++            }
+         }
+ 
+         findButton = (Button)findViewById(R.id.button_find);
+@@ -77,30 +112,23 @@
+         });
+     }
+ 
+-//    private SurfaceHolder.Callback surfaceListener = new SurfaceHolder.Callback() {
+-//
+-//        @Override//액티비티가 비활성 상태일 때 화면에 표시X
+-//        public void surfaceDestroyed(SurfaceHolder holder) {
+-//            camera.release();
+-//        }
+-//
+-//        @Override
+-//        public void surfaceCreated(SurfaceHolder holder) {
+-//            //카메라 객체를 받아와 카메라로부터 영상을 받을수있도록 초기화
+-//            camera = Camera.open();
+-//            try {
+-//                camera.setPreviewDisplay(holder);
+-//            } catch (IOException e) {
+-//                // TODO Auto-generated catch block
+-//                e.printStackTrace();
+-//            }
+-//        }
+-//
+-//        @Override//카메라 객체에서 프리뷰 영상을 표시할 영역의 크기 설정
+-//        public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
+-//            Camera.Parameters parameters = camera.getParameters();
+-//            parameters.setPreviewSize(w, h);
+-//            camera.startPreview();
+-//        }
+-//    };
++    @Override
++    public void onRequestPermissionsResult(int requestCode,
++                                           String permissions[], int[] grantResults) {
++        switch (requestCode) {
++            case MY_PERMISSIONS_REQUEST_CAMERA: {
++                // If request is cancelled, the result arrays are empty.
++                if (grantResults.length > 0
++                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
++
++                    Toast.makeText(this,"승인이 허가되어 있습니다.",Toast.LENGTH_LONG).show();
++
++                } else {
++                    Toast.makeText(this,"아직 승인받지 않았습니다.",Toast.LENGTH_LONG).show();
++                }
++                return;
++            }
++
++        }
++    }
+ }
+\ No newline at end of file
+Index: .idea/shelf/병합_전에_커밋되지_않은_변경_내용_at_2021-04-27_오후_9_23_[디폴트_변경_목록]/shelved.patch
+===================================================================
+--- .idea/shelf/병합_전에_커밋되지_않은_변경_내용_at_2021-04-27_오후_9_23_[디폴트_변경_목록]/shelved.patch	(revision 40c29a94be874f38212b2eab60dabf13bea032d8)
++++ .idea/shelf/병합_전에_커밋되지_않은_변경_내용_at_2021-04-27_오후_9_23_[디폴트_변경_목록]/shelved.patch	(revision 40c29a94be874f38212b2eab60dabf13bea032d8)
+@@ -1,1899 +0,0 @@
+-Index: .idea/.gitignore
+-===================================================================
+---- .idea/.gitignore	(revision 687a0b118a9dcf682548ae461fc5895e3841ff76)
+-+++ .idea/.gitignore	(revision 687a0b118a9dcf682548ae461fc5895e3841ff76)
+-@@ -1,3 +0,0 @@
+--# Default ignored files
+--/shelf/
+--/workspace.xml
+-Index: app/src/main/java/com/example/vision01/Sqlite/DataBase.java
+-===================================================================
+---- app/src/main/java/com/example/vision01/Sqlite/DataBase.java	(revision 687a0b118a9dcf682548ae461fc5895e3841ff76)
+-+++ app/src/main/java/com/example/vision01/Sqlite/DataBase.java	(revision 687a0b118a9dcf682548ae461fc5895e3841ff76)
+-@@ -1,17 +0,0 @@
+--package com.example.vision01.Sqlite;
+--
+--import android.provider.BaseColumns;
+--
+--public class DataBase {
+--    public static final class CreateDB implements BaseColumns {
+--        public static final String NAME = "name";
+--        public static final String SERIAL_NO = "sn";
+--        public static final String IS_THEFT_MODE = "isTheftMode";
+--        public static final String DEVICE_LIST = "device_List";
+--        public static final String _CREATE0 = "create table if not exists "+ DEVICE_LIST+" ("
+--                +_ID+" integer primary key autoincrement, "
+--                +NAME+" text, "
+--                +SERIAL_NO + " text, "
+--                +IS_THEFT_MODE+" boolean);";
+--    }
+--}
+-Index: app/src/main/java/com/example/vision01/Sqlite/SqlManager.java
+-===================================================================
+---- app/src/main/java/com/example/vision01/Sqlite/SqlManager.java	(revision 687a0b118a9dcf682548ae461fc5895e3841ff76)
+-+++ app/src/main/java/com/example/vision01/Sqlite/SqlManager.java	(revision 687a0b118a9dcf682548ae461fc5895e3841ff76)
+-@@ -1,96 +0,0 @@
+--package com.example.vision01.Sqlite;
+--
+--import android.content.ContentValues;
+--import android.content.Context;
+--import android.database.Cursor;
+--import android.database.sqlite.SQLiteDatabase;
+--import android.database.sqlite.SQLiteOpenHelper;
+--import android.util.Log;
+--import android.widget.Toast;
+--
+--import static android.provider.BaseColumns._ID;
+--import static com.example.vision01.Sqlite.DataBase.CreateDB.DEVICE_LIST;
+--import static com.example.vision01.Sqlite.DataBase.CreateDB.NAME;
+--
+--
+--public class SqlManager extends SQLiteOpenHelper {
+--    public static SqlManager sqlManager = null;
+--    private static final String DATABASE_NAME = "InnerDatabase(SQLite).db";
+--    private static final int DATABASE_VERSION = 1;
+--    private SQLiteDatabase mDB;
+--
+--    public static SqlManager getInstance(Context context){ // 싱글턴 패턴으로 구현하였다.
+--        if(sqlManager == null){
+--            sqlManager = new SqlManager(context);
+--        }
+--
+--        return sqlManager;
+--    }
+--
+--    private SqlManager(Context context) {
+--        super(context, DATABASE_NAME, null, DATABASE_VERSION);
+--
+--        // mDB = context.openOrCreateDatabase(DATABASE_NAME, context.MODE_PRIVATE,null);
+--        //mDB = this.getWritableDatabase();
+--    }
+--    @Override
+--    public void onCreate(SQLiteDatabase db) {
+--        Log.e("sql", "ON CREATE");
+--        mDB.execSQL(DataBase.CreateDB._CREATE0);
+--
+--    }
+--    @Override
+--    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion){
+--        db.execSQL("DROP TABLE IF EXISTS " + DEVICE_LIST);
+--        onCreate(db);
+--    }
+--
+--    public void close(){
+--        mDB.close();
+--    }
+--
+--    //INSERT : 데이터 입력
+--    public long insertColumn(String name, String sn, Boolean isTM){
+--        ContentValues values = new ContentValues();
+--        values.put(DataBase.CreateDB.NAME, name);
+--        values.put(DataBase.CreateDB.SERIAL_NO, sn);
+--        values.put(DataBase.CreateDB.IS_THEFT_MODE, isTM);
+--        return mDB.insert(DEVICE_LIST, null, values);
+--    }
+--    //SELECT : 데이터 선택
+--    //1. 모든 데이블의 데이터 가져오기
+--    public Cursor getDevices(){
+--        return mDB.query(DEVICE_LIST, null, null, null, null, null, null);
+--    }
+--
+--    public void selectAll(){
+--        String sql = "select * from " + DEVICE_LIST + ";";
+--        Cursor results = mDB.rawQuery(sql, null);
+--
+--        results.moveToFirst();
+--
+--        while(!results.isAfterLast()){
+--            int id = results.getInt(0);
+--            String voca = results.getString(1);
+--            // Toast.makeText(this, "id = "+_ID+" name="+NAME, 0).show();
+--            results.moveToNext();
+--        }
+--        results.close();
+--    }
+--
+--    //2. 특정 행(row)을 선택하고 싶은 경우
+--
+--    //UPDATE : 데이터 갱신
+--    public boolean updateColumn(long id, String name, String sn, Boolean isTM){
+--        ContentValues values = new ContentValues();
+--        values.put(DataBase.CreateDB.NAME, name);
+--        values.put(DataBase.CreateDB.SERIAL_NO, sn);
+--        values.put(DataBase.CreateDB.IS_THEFT_MODE, isTM);
+--        return mDB.update(DEVICE_LIST, values, "_ID=" + id, null) > 0;
+--    }
+--
+--    //DELETE : 데이터 삭제
+--    public boolean deleteColumn(long id){
+--        return mDB.delete(DEVICE_LIST, "_ID="+id, null) > 0;
+--    }
+--}
+-Index: app/src/main/res/anim/translate.xml
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+---- app/src/main/res/anim/translate.xml	(date 1619431858000)
+-+++ app/src/main/res/anim/translate.xml	(date 1619431858000)
+-@@ -0,0 +1,9 @@
+-+<?xml version="1.0" encoding="utf-8"?>
+-+<set xmlns:android="http://schemas.android.com/apk/res/android">
+-+    <translate
+-+        android:duration="3000"
+-+        android:fromXDelta="-100%"
+-+        android:toXDelta="+100%"
+-+        android:repeatCount="infinite"
+-+        android:repeatMode="restart"/>
+-+</set>
+-\ No newline at end of file
+-Index: app/src/main/res/layout/activity_device_list_form.xml
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+-<+><?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<androidx.constraintlayout.widget.ConstraintLayout xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n    xmlns:app=\"http://schemas.android.com/apk/res-auto\"\r\n    xmlns:tools=\"http://schemas.android.com/tools\"\r\n    android:layout_width=\"match_parent\"\r\n    android:layout_height=\"match_parent\"\r\n    tools:context=\".DeviceListForm\">\r\n\r\n    <ListView\r\n        android:id=\"@+id/listView\"\r\n        android:layout_width=\"413dp\"\r\n        android:layout_height=\"678dp\"\r\n        app:layout_constraintStart_toStartOf=\"parent\"\r\n        app:layout_constraintTop_toTopOf=\"parent\" />\r\n\r\n    <LinearLayout\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:layout_gravity=\"bottom\"\r\n        android:orientation=\"horizontal\"\r\n        app:layout_constraintBottom_toBottomOf=\"parent\"\r\n        app:layout_constraintStart_toStartOf=\"parent\">\r\n\r\n        <Button\r\n            android:id=\"@+id/add_btn\"\r\n            app:backgroundTint=\"#2D1C7A\"\r\n            android:layout_width=\"wrap_content\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:layout_weight=\"1\"\r\n            android:text=\"추가\" />\r\n\r\n        <Button\r\n            android:id=\"@+id/del_btn\"\r\n            app:backgroundTint=\"#2D1C7A\"\r\n            android:layout_width=\"wrap_content\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:layout_weight=\"1\"\r\n            android:text=\"삭제\" />\r\n\r\n    </LinearLayout>\r\n\r\n</androidx.constraintlayout.widget.ConstraintLayout>
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+---- app/src/main/res/layout/activity_device_list_form.xml	(revision 687a0b118a9dcf682548ae461fc5895e3841ff76)
+-+++ app/src/main/res/layout/activity_device_list_form.xml	(date 1619220154000)
+-@@ -4,39 +4,32 @@
+-     xmlns:tools="http://schemas.android.com/tools"
+-     android:layout_width="match_parent"
+-     android:layout_height="match_parent"
+-+    android:layout_gravity="center"
+-     tools:context=".DeviceListForm">
+- 
+--    <ListView
+--        android:id="@+id/listView"
+--        android:layout_width="413dp"
+--        android:layout_height="678dp"
+--        app:layout_constraintStart_toStartOf="parent"
+--        app:layout_constraintTop_toTopOf="parent" />
+--
+--    <LinearLayout
+--        android:layout_width="match_parent"
+--        android:layout_height="wrap_content"
+--        android:layout_gravity="bottom"
+--        android:orientation="horizontal"
+--        app:layout_constraintBottom_toBottomOf="parent"
+--        app:layout_constraintStart_toStartOf="parent">
+--
+--        <Button
+--            android:id="@+id/add_btn"
+--            app:backgroundTint="#2D1C7A"
+--            android:layout_width="wrap_content"
+--            android:layout_height="wrap_content"
+--            android:layout_weight="1"
+--            android:text="추가" />
+--
+--        <Button
+--            android:id="@+id/del_btn"
+--            app:backgroundTint="#2D1C7A"
+--            android:layout_width="wrap_content"
+--            android:layout_height="wrap_content"
+--            android:layout_weight="1"
+--            android:text="삭제" />
+--
+-+    <LinearLayout
+-+        android:layout_width="match_parent"
+-+        android:layout_height="match_parent"
+-+        android:orientation="vertical"
+-+        app:layout_constraintBottom_toBottomOf="parent"
+-+        app:layout_constraintEnd_toEndOf="parent"
+-+        app:layout_constraintStart_toStartOf="parent"
+-+        app:layout_constraintTop_toTopOf="parent">
+-+
+-+        <TextView
+-+            android:id="@+id/text_state"
+-+            android:layout_width="match_parent"
+-+            android:layout_height="50dp"
+-+            android:gravity="center"
+-+            android:includeFontPadding="false"
+-+            android:text="제품 찾기"
+-+            android:textAlignment="center"
+-+            android:textSize="24sp" />
+-+
+-+        <ListView
+-+            android:id="@+id/listView"
+-+            android:layout_width="413dp"
+-+            android:layout_height="match_parent" />
+-     </LinearLayout>
+- 
+- </androidx.constraintlayout.widget.ConstraintLayout>
+-\ No newline at end of file
+-Index: app/src/main/java/com/example/vision01/FindForm.java
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+---- app/src/main/java/com/example/vision01/FindForm.java	(date 1619519972000)
+-+++ app/src/main/java/com/example/vision01/FindForm.java	(date 1619519972000)
+-@@ -0,0 +1,106 @@
+-+package com.example.vision01;
+-+
+-+import android.app.Activity;
+-+import android.content.Context;
+-+import android.content.Intent;
+-+//import android.graphics.Camera;
+-+import android.hardware.camera2.CameraDevice;
+-+import android.hardware.Camera;
+-+import android.os.Build;
+-+import android.os.Bundle;
+-+import android.util.AttributeSet;
+-+import android.view.SurfaceHolder;
+-+import android.view.SurfaceView;
+-+import android.view.View;
+-+import android.view.animation.Animation;
+-+import android.view.animation.AnimationUtils;
+-+import android.widget.Button;
+-+import android.widget.ImageView;
+-+import android.widget.Toast;
+-+
+-+import android.Manifest;
+-+import android.content.Context;
+-+import android.content.pm.PackageManager;
+-+import android.os.Bundle;
+-+import android.view.SurfaceHolder;
+-+import android.view.SurfaceView;
+-+import android.widget.FrameLayout;
+-+import android.widget.Toast;
+-+
+-+import androidx.appcompat.app.AppCompatActivity;
+-+import androidx.core.app.ActivityCompat;
+-+import androidx.core.content.ContextCompat;
+-+
+-+import java.io.IOException;
+-+
+-+public class FindForm extends AppCompatActivity {
+-+
+-+    private Button findButton;
+-+//    private SurfaceView surfaceView;
+-+//    private SurfaceHolder surfaceHolder;
+-+//    private Camera camera;
+-+
+-+    SurfaceView pc;
+-+
+-+    @Override
+-+    protected void onCreate(Bundle savedInstanceState) {
+-+        super.onCreate(savedInstanceState);
+-+        setContentView(R.layout.activity_rotation_request);
+-+
+-+//        surfaceView = (SurfaceView)findViewById(R.id.surfaceView_cam);
+-+//        surfaceHolder = surfaceView.getHolder();
+-+//        surfaceHolder.addCallback(surfaceListener);
+-+
+-+        pc = findViewById(R.id.surfaceView_cam);
+-+
+-+        //동적퍼미션 작업
+-+        if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.M){
+-+            int permissionResult= checkSelfPermission(Manifest.permission.CAMERA);
+-+            if(permissionResult== PackageManager.PERMISSION_DENIED){
+-+                String[] permissions= new String[]{Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE};
+-+                requestPermissions(permissions,10);
+-+            }
+-+        }else{
+-+            pc.setVisibility(View.VISIBLE);
+-+        }
+-+
+-+        findButton = (Button)findViewById(R.id.button_find);
+-+        final ImageView arrow_image = (ImageView)findViewById(R.id.right_arrow);
+-+
+-+        findButton.setOnClickListener(new View.OnClickListener(){
+-+            @Override
+-+            public void onClick(View v) {
+-+                arrow_image.setVisibility(View.VISIBLE);
+-+                Animation animation = AnimationUtils.loadAnimation(getApplicationContext(),R.anim.translate);
+-+                arrow_image.startAnimation(animation);
+-+            }
+-+        });
+-+    }
+-+
+-+//    private SurfaceHolder.Callback surfaceListener = new SurfaceHolder.Callback() {
+-+//
+-+//        @Override//액티비티가 비활성 상태일 때 화면에 표시X
+-+//        public void surfaceDestroyed(SurfaceHolder holder) {
+-+//            camera.release();
+-+//        }
+-+//
+-+//        @Override
+-+//        public void surfaceCreated(SurfaceHolder holder) {
+-+//            //카메라 객체를 받아와 카메라로부터 영상을 받을수있도록 초기화
+-+//            camera = Camera.open();
+-+//            try {
+-+//                camera.setPreviewDisplay(holder);
+-+//            } catch (IOException e) {
+-+//                // TODO Auto-generated catch block
+-+//                e.printStackTrace();
+-+//            }
+-+//        }
+-+//
+-+//        @Override//카메라 객체에서 프리뷰 영상을 표시할 영역의 크기 설정
+-+//        public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
+-+//            Camera.Parameters parameters = camera.getParameters();
+-+//            parameters.setPreviewSize(w, h);
+-+//            camera.startPreview();
+-+//        }
+-+//    };
+-+}
+-\ No newline at end of file
+-Index: app/src/main/res/menu/device_popup_menu.xml
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+---- app/src/main/res/menu/device_popup_menu.xml	(date 1619218932000)
+-+++ app/src/main/res/menu/device_popup_menu.xml	(date 1619218932000)
+-@@ -0,0 +1,13 @@
+-+<?xml version="1.0" encoding="utf-8"?>
+-+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+-+
+-+    <item android:id="@+id/action_add"
+-+        android:title="추가" />
+-+
+-+    <item android:id="@+id/action_modify"
+-+        android:title="수정" />
+-+
+-+    <item android:id="@+id/action_delete"
+-+        android:title="삭제" />
+-+
+-+</menu>
+-\ No newline at end of file
+-Index: app/src/main/java/com/example/vision01/LoginForm.java
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+-<+>package com.example.vision01;\r\n\r\nimport androidx.appcompat.app.AppCompatActivity;\r\n\r\nimport android.app.Activity;\r\nimport android.content.Intent;\r\nimport android.content.res.AssetManager;\r\nimport android.graphics.Paint;\r\nimport android.os.Bundle;\r\nimport android.util.Log;\r\nimport android.view.View;\r\nimport android.widget.Button;\r\nimport android.widget.EditText;\r\nimport android.widget.Toast;\r\n\r\nimport com.android.volley.RequestQueue;\r\nimport com.android.volley.Response;\r\nimport com.android.volley.toolbox.Volley;\r\nimport com.example.vision01.Sqlite.SqliteDb;\r\n\r\nimport org.json.JSONException;\r\nimport org.json.JSONObject;\r\n\r\nimport java.io.File;\r\nimport java.io.FileOutputStream;\r\nimport java.io.IOException;\r\nimport java.io.InputStream;\r\nimport java.io.OutputStream;\r\n\r\npublic class LoginForm extends AppCompatActivity {\r\n\r\n    private EditText login_id, login_pw;\r\n    private Button joinButton, loginButton;\r\n\r\n    @Override\r\n    protected void onCreate(Bundle savedInstanceState) {\r\n        super.onCreate(savedInstanceState);\r\n        //dataFileCopy();\r\n        setContentView(R.layout.activity_login_form);\r\n\r\n        login_id = findViewById(R.id.login_id);\r\n        login_pw = findViewById(R.id.login_pw);\r\n\r\n        joinButton = (Button)findViewById(R.id.btn_join_login);\r\n        loginButton = (Button)findViewById(R.id.btn_login);\r\n\r\n        loginButton.setOnClickListener(new View.OnClickListener(){\r\n            @Override\r\n            public void onClick(View v) {\r\n                Intent intent = new Intent(getApplicationContext(), ARCamera.class);\r\n                startActivity(intent);\r\n  /*\r\n                String user_id = login_id.getText().toString();\r\n                String user_pw = login_pw.getText().toString();\r\n\r\n                Intent intent = new Intent(getApplicationContext(), DeviceListForm.class);\r\n                startActivity(intent);\r\n\r\n                Log.e(\"login\",\"로그인 버튼 클릭\");\r\n\r\n                Response.Listener<String> responseListener = new Response.Listener<String>() {\r\n                    @Override\r\n                    public void onResponse(String response) {\r\n\r\n\r\n                        try{\r\n                            JSONObject jsonObject = new JSONObject(response);\r\n                            boolean success = jsonObject.getBoolean(\"success\");\r\n\r\n                            if(success){ // 로그인 성공 시\r\n                                String user_id = jsonObject.getString(\"user_id\");\r\n                                String user_pw = jsonObject.getString(\"user_pw\");\r\n\r\n                                Log.e(\"login\",\"로그인 성공\");\r\n\r\n                                Toast.makeText(getApplicationContext(), \"로그인 성공\", Toast.LENGTH_SHORT).show();\r\n                                Intent intent = new Intent(getApplicationContext(), ARCamera.class);\r\n\r\n                                intent.putExtra(\"user_id\", user_id);\r\n                                intent.putExtra(\"user_pw\", user_pw);\r\n\r\n                                startActivity(intent);\r\n                            }\r\n                            else { // 로그인 실패 시\r\n                                Log.e(\"login\",\"로그인 실패\");\r\n                                Toast.makeText(getApplicationContext(), \"로그인 실패\", Toast.LENGTH_SHORT).show();\r\n                                return;\r\n                            }\r\n                        } catch (JSONException e){\r\n                            Log.e(\"login\",\"로그인 실패\");\r\n                            Toast.makeText(getApplicationContext(), \"로그인 실패\", Toast.LENGTH_SHORT).show();\r\n                            e.printStackTrace();\r\n                        }\r\n                    }\r\n                };\r\n                LoginRequest loginRequest = new LoginRequest(user_id, user_pw, responseListener);\r\n                RequestQueue queue = Volley.newRequestQueue(LoginForm.this);\r\n                queue.add(loginRequest);\r\n*/\r\n            }\r\n        });\r\n        joinButton.setOnClickListener(new View.OnClickListener(){\r\n            @Override\r\n            public void onClick(View v) {\r\n                Intent intent = new Intent(getApplicationContext(), JoinForm.class);\r\n                startActivity(intent);\r\n            }\r\n        });\r\n    }\r\n    public void dataFileCopy(){\r\n        try{\r\n            AssetManager assetMgr = this.getAssets();\r\n            String[] fileList = assetMgr.list(\"\");\r\n            for (String fileName : fileList) {\r\n\r\n                if(fileName.startsWith(SqliteDb.DBFILE_PREFIX)){\r\n                    Log.e(\"DB\", \"file name : \" + fileName);\r\n                    String fileDate = fileName.substring(SqliteDb.DBFILE_PREFIX.length()).substring(0,6);\r\n                    String toPath = getExternalFilesDir(null).getPath().toString() + File.separator + SqliteDb.DBFILE_PREFIX + \"Use.sqlite\";\r\n                    Log.e(\"DB\", \"toPath : \" + toPath);\r\n\r\n                    File file = new File(toPath);\r\n                    copyAsset(assetMgr, fileName, file.getAbsolutePath());\r\n                }\r\n            }\r\n        } catch (IOException e) {\r\n            e.printStackTrace();\r\n        }\r\n    }\r\n    private boolean copyAsset(AssetManager assetManager, String fromAssetPath, String toPath){\r\n        InputStream input = null;\r\n        OutputStream output = null;\r\n\r\n        try{\r\n            input = assetManager.open(fromAssetPath);\r\n            new File(toPath).createNewFile();\r\n            output = new FileOutputStream(toPath);\r\n\r\n            copyFile(input, output);\r\n            input.close();\r\n            input = null;\r\n            output.flush();\r\n            output.close();\r\n            output = null;\r\n\r\n            return true;\r\n        }\r\n        catch (Exception e){\r\n            e.printStackTrace();\r\n            return false;\r\n        }\r\n    }\r\n\r\n    private void copyFile(InputStream input, OutputStream output) throws IOException {\r\n        byte[] buffer = new byte[1024];\r\n\r\n        int read = 0;\r\n        while((read = input.read(buffer)) > 0){\r\n            output.write(buffer, 0, read);\r\n        }\r\n    }\r\n}
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+---- app/src/main/java/com/example/vision01/LoginForm.java	(revision 687a0b118a9dcf682548ae461fc5895e3841ff76)
+-+++ app/src/main/java/com/example/vision01/LoginForm.java	(date 1619521614000)
+-@@ -3,6 +3,9 @@
+- import androidx.appcompat.app.AppCompatActivity;
+- 
+- import android.app.Activity;
+-+import android.bluetooth.le.BluetoothLeScanner;
+-+import android.bluetooth.le.ScanFilter;
+-+import android.content.BroadcastReceiver;
+- import android.content.Intent;
+- import android.content.res.AssetManager;
+- import android.graphics.Paint;
+-@@ -17,6 +20,7 @@
+- import com.android.volley.Response;
+- import com.android.volley.toolbox.Volley;
+- import com.example.vision01.Sqlite.SqliteDb;
+-+import com.example.vision01.Utils.Preferences;
+- 
+- import org.json.JSONException;
+- import org.json.JSONObject;
+-@@ -26,16 +30,36 @@
+- import java.io.IOException;
+- import java.io.InputStream;
+- import java.io.OutputStream;
+-+import java.util.ArrayList;
+-+import androidx.annotation.RequiresApi;
+-+import android.bluetooth.BluetoothAdapter;
+-+import android.bluetooth.BluetoothDevice;
+-+import android.bluetooth.le.BluetoothLeScanner;
+-+import android.bluetooth.le.ScanCallback;
+-+import android.bluetooth.le.ScanFilter;
+-+import android.bluetooth.le.ScanResult;
+-+import android.bluetooth.le.ScanSettings;
+-+import android.content.BroadcastReceiver;
+-+import android.content.Context;
+-+import android.os.Build;
+-+import java.util.List;
+- 
+- public class LoginForm extends AppCompatActivity {
+- 
+-     private EditText login_id, login_pw;
+-     private Button joinButton, loginButton;
+-+    private boolean findAble = true;
+-+    private int findWhere=0;
+-+
+- 
+-+
+-+    private BluetoothAdapter bluetoothAdapter;
+-     @Override
+-     protected void onCreate(Bundle savedInstanceState) {
+-         super.onCreate(savedInstanceState);
+--        //dataFileCopy();
+-+        Preferences.setContext(this);
+-+        Preferences.initial();
+-+        dataFileCopy();
+-         setContentView(R.layout.activity_login_form);
+- 
+-         login_id = findViewById(R.id.login_id);
+-@@ -47,7 +71,7 @@
+-         loginButton.setOnClickListener(new View.OnClickListener(){
+-             @Override
+-             public void onClick(View v) {
+--                Intent intent = new Intent(getApplicationContext(), ARCamera.class);
+-+                Intent intent = new Intent(getApplicationContext(), DeviceListForm.class);
+-                 startActivity(intent);
+-   /*
+-                 String user_id = login_id.getText().toString();
+-@@ -107,20 +131,119 @@
+-             }
+-         });
+-     }
+-+
+-+    private BluetoothLeScanner leScanner;
+-+    private void scan()
+-+    {
+-+        ScanFilter filter = new ScanFilter.Builder().setDeviceAddress("F8:95:EA:5A:DD:3C").build();
+-+
+-+        ArrayList<ScanFilter> filters = new ArrayList<ScanFilter>();
+-+        filters.add(filter);
+-+
+-+        ScanSettings settings = new ScanSettings.Builder()
+-+                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+-+                .setReportDelay(0)
+-+                .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+-+                .build();
+-+        leScanner.startScan(filters,settings,scanCallback);
+-+    }
+-+    private ArrayList<Integer> rssi_a = new ArrayList<Integer>();
+-+    private int blueRssi=-120,maxRssi;
+-+
+-+    private int[] rssis = new int[10];
+-+
+-+    private boolean blue = false;
+-+    private boolean blueA = false;
+-+    private ScanCallback scanCallback = new ScanCallback()
+-+    {
+-+        int i = 0;
+-+        int j = 0,c = 0;
+-+        double[] sampling = new double[10];
+-+        @RequiresApi(api = Build.VERSION_CODES.O)
+-+        @Override
+-+        public void onScanResult(int callbackType, ScanResult result)
+-+        {
+-+            super.onScanResult(callbackType, result);
+-+            if(!findAble) return; // 계산시 중복 방지
+-+            int rssi= result.getRssi();
+-+            rssis[(rssi*-1)/10]++;
+-+
+-+            Log.i("onScanResult", "|" + "111111111111111" + "|"  + result.getDevice().getAddress() +"|"+ result.getRssi());
+-+            c++;
+-+            System.out.println("오긴옴"+c);
+-+            if(c == 20) {
+-+                findAble = false;
+-+                c = 0;
+-+                int x=0;
+-+                System.out.println("오긴옴"+findWhere);
+-+                sampling[findWhere] = 0.1*rssis[1]+0.2*rssis[2]+0.3*rssis[3]+0.5*rssis[4]+0.6*rssis[5]+1.0*rssis[6]+1.5*rssis[7]+2*rssis[8]+4*rssis[9];
+-+
+-+
+-+                if(findWhere ==3) {
+-+                    double temp=10000;
+-+                    for(int a=0;a<4;a++) {
+-+                        if(sampling[a]<temp)  {
+-+                            temp=sampling[a];
+-+                            x= a;
+-+                        }
+-+                    }
+-+                    Log.i("onScanResult", "젤 쌘 방향은 " + x);
+-+                    Toast.makeText(getApplicationContext()," x " + x, Toast.LENGTH_SHORT).show();
+-+                    return;
+-+                } else{
+-+                    Toast.makeText(getApplicationContext()," 스캔완료 " + findWhere, Toast.LENGTH_SHORT).show();
+-+                }
+-+                rssis = new int[10];
+-+            }
+-+            // Log.i("onScanResult", "|" + "111111111111111" + "|"  + result.getDevice().getAddress() +"|"+ result.getRssi());
+-+            //Toast.makeText(getApplicationContext()," rssi는 대략 "+rssi+"db | " +j, Toast.LENGTH_SHORT).show();
+-+        }
+-+
+-+
+-+        @Override
+-+        public void onScanFailed(int errorCode)
+-+        {
+-+            super.onScanFailed(errorCode);
+-+            Log.i("MainActivity.java | onScanFailed", "|" + "2222222222222" + "|" + errorCode);
+-+        }
+-+
+-+
+-+        @RequiresApi(api = Build.VERSION_CODES.O)
+-+        @Override
+-+        public void onBatchScanResults(List<ScanResult> results)
+-+        {
+-+            super.onBatchScanResults(results);
+-+
+-+            for (ScanResult result : results)
+-+            {
+-+                Log.i("MainActivity.java | onBatchScanResults", "33333333333333|" + result.getDevice().getName() + "|" + result.getDevice().getAddress() + "|"+ result.getTxPower() + "|"+ result.getRssi() + "|");
+-+            }
+-+        }
+-+    };
+-     public void dataFileCopy(){
+-         try{
+-             AssetManager assetMgr = this.getAssets();
+-             String[] fileList = assetMgr.list("");
+-             for (String fileName : fileList) {
+- 
+-+
+-                 if(fileName.startsWith(SqliteDb.DBFILE_PREFIX)){
+-+
+-                     Log.e("DB", "file name : " + fileName);
+-                     String fileDate = fileName.substring(SqliteDb.DBFILE_PREFIX.length()).substring(0,6);
+-                     String toPath = getExternalFilesDir(null).getPath().toString() + File.separator + SqliteDb.DBFILE_PREFIX + "Use.sqlite";
+-                     Log.e("DB", "toPath : " + toPath);
+--
+--                    File file = new File(toPath);
+--                    copyAsset(assetMgr, fileName, file.getAbsolutePath());
+-+                    if(Preferences.getString(Preferences.DB_UPDATE_DATE) == null || Preferences.getString(Preferences.DB_UPDATE_DATE) == "" ){
+-+                        Log.e("DB", "preference null!!");
+-+                        File file = new File(toPath);
+-+                        copyAsset(assetMgr, fileName, file.getAbsolutePath());
+-+                        Log.e("DB", "after copy");
+-+                        Preferences.putString(Preferences.DB_UPDATE_DATE, fileDate);
+-+                        Log.e("DB", "Preferences DB_UPDATE_DATE : " + Preferences.getString(Preferences.DB_UPDATE_DATE));
+-+                    }
+-+                    else{
+-+                        Log.e("DB", "Preferences DB_UPDATE_DATE : " + Preferences.getString(Preferences.DB_UPDATE_DATE));
+-+                    }
+-                 }
+-             }
+-         } catch (IOException e) {
+-Index: app/src/main/res/layout/device_list_view_item.xml
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+-<+><?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<androidx.constraintlayout.widget.ConstraintLayout\r\n    xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n    xmlns:app=\"http://schemas.android.com/apk/res-auto\"\r\n    android:layout_width=\"match_parent\"\r\n    android:layout_height=\"match_parent\">\r\n\r\n    <LinearLayout\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:orientation=\"horizontal\"\r\n        app:layout_constraintTop_toTopOf=\"parent\">\r\n\r\n        <Button\r\n            android:id=\"@+id/btn_device_info\"\r\n            android:layout_width=\"300dp\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:layout_weight=\"1\"\r\n            android:text=\"차키 ( sn.2134322 )\"\r\n            app:backgroundTint=\"#2D1C7A\" />\r\n\r\n        <Switch\r\n            android:id=\"@+id/switch_is_theft_mode\"\r\n            android:layout_width=\"wrap_content\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:layout_weight=\"1\" />\r\n    </LinearLayout>\r\n\r\n</androidx.constraintlayout.widget.ConstraintLayout>
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+---- app/src/main/res/layout/device_list_view_item.xml	(revision 687a0b118a9dcf682548ae461fc5895e3841ff76)
+-+++ app/src/main/res/layout/device_list_view_item.xml	(date 1619220312000)
+-@@ -1,29 +1,34 @@
+- <?xml version="1.0" encoding="utf-8"?>
+--<androidx.constraintlayout.widget.ConstraintLayout
+--    xmlns:android="http://schemas.android.com/apk/res/android"
+-+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+-     xmlns:app="http://schemas.android.com/apk/res-auto"
+-     android:layout_width="match_parent"
+--    android:layout_height="match_parent">
+-+    android:layout_height="wrap_content">
+- 
+-     <LinearLayout
+--        android:layout_width="match_parent"
+--        android:layout_height="wrap_content"
+-+        android:layout_width="0dp"
+-+        android:layout_height="match_parent"
+-         android:orientation="horizontal"
+-+        app:layout_constraintEnd_toEndOf="parent"
+-         app:layout_constraintTop_toTopOf="parent">
+- 
+-         <Button
+-             android:id="@+id/btn_device_info"
+-             android:layout_width="300dp"
+-             android:layout_height="wrap_content"
+--            android:layout_weight="1"
+-             android:text="차키 ( sn.2134322 )"
+-             app:backgroundTint="#2D1C7A" />
+- 
+-+        <View
+-+            android:layout_width="0dp"
+-+            android:layout_height="0dp"
+-+            android:layout_weight="1" />
+-+
+-         <Switch
+-             android:id="@+id/switch_is_theft_mode"
+--            android:layout_width="wrap_content"
+--            android:layout_height="wrap_content"
+--            android:layout_weight="1" />
+-+            android:layout_width="50dp"
+-+            android:layout_height="wrap_content" />
+-+
+-+
+-     </LinearLayout>
+- 
+- </androidx.constraintlayout.widget.ConstraintLayout>
+-\ No newline at end of file
+-Index: app/src/main/java/com/example/vision01/PreviewCamera.java
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+---- app/src/main/java/com/example/vision01/PreviewCamera.java	(date 1619523726000)
+-+++ app/src/main/java/com/example/vision01/PreviewCamera.java	(date 1619523726000)
+-@@ -0,0 +1,128 @@
+-+package com.example.vision01;
+-+
+-+import android.app.Activity;
+-+import android.content.Context;
+-+import android.hardware.Camera;
+-+import android.hardware.camera2.CameraDevice;
+-+import android.os.Bundle;
+-+import android.util.AttributeSet;
+-+import android.view.SurfaceHolder;
+-+import android.view.SurfaceView;
+-+import android.widget.Button;
+-+
+-+import com.example.vision01.Device.DeviceAdpt;
+-+
+-+import java.io.IOException;
+-+
+-+public class PreviewCamera extends SurfaceView implements SurfaceHolder.Callback {
+-+
+-+    SurfaceHolder mHolder;
+-+    //Context mContext;
+-+    Camera mCamera;
+-+
+-+    public PreviewCamera(Context context, AttributeSet attrs) {
+-+        super(context, attrs);
+-+
+-+        //mContext = context;
+-+        mHolder = getHolder();
+-+        mHolder.addCallback(this);
+-+        //mHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+-+    }
+-+
+-+    @Override
+-+    public void surfaceCreated(SurfaceHolder holder) {
+-+        //카메라 객체를 받아와 카메라로부터 영상을 받을수있도록 초기화
+-+        mCamera = Camera.open(0); //후면카메라 0 전면카메라 1
+-+        try {
+-+            mCamera.setPreviewDisplay(mHolder);
+-+
+-+            //카메라는 무조건 가로방향임
+-+            //프리뷰를 90도 회전
+-+            mCamera.setDisplayOrientation(90);
+-+        } catch (IOException exception) {
+-+
+-+        }
+-+    }
+-+
+-+    @Override//카메라 객체에서 프리뷰 영상을 표시할 영역의 크기 설정
+-+    public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
+-+//        Camera.Parameters parameters = mCamera.getParameters();
+-+//        parameters.setPreviewSize(w, h);
+-+//        mCamera.setParameters(parameters);
+-+//        mCamera.startPreview();
+-+        mCamera.startPreview();
+-+    }
+-+
+-+    @Override//액티비티가 비활성 상태일 때 화면에 표시X
+-+    public void surfaceDestroyed(SurfaceHolder holder) {
+-+        //미리보기 종료
+-+        mCamera.stopPreview();
+-+
+-+        //카메라 닫기
+-+        mCamera.release();
+-+        mCamera= null;
+-+    }
+-+
+-+
+-+
+-+//        private CameraDevice camera;
+-+//        private SurfaceView mCameraView;
+-+//        private SurfaceHolder mCameraHolder;
+-+//        private Camera mCamera;
+-+//
+-+//        @Override
+-+//        public void onCreate(Bundle savedInstanceState) {
+-+//            super.onCreate(savedInstanceState);
+-+//
+-+//            mCameraView = (SurfaceView)findViewById(R.id.surfaceView_cam);
+-+//
+-+//            init();
+-+//        }
+-+//
+-+//        private void init() {
+-+//            mCamera = Camera.open();
+-+//            mCamera.setDisplayOrientation(90);
+-+//
+-+//            mCameraHolder = mCameraView.getHolder();
+-+//            mCameraHolder.addCallback(this);
+-+//            mCameraHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+-+//        }
+-+//
+-+//        public void surfaceCreated(SurfaceHolder holder) {
+-+//            try {
+-+//                if(mCamera == null) {
+-+//                    mCamera.setPreviewDisplay(holder);
+-+//                    mCamera.startPreview();
+-+//                }
+-+//            } catch (IOException exception) {
+-+//
+-+//            }
+-+//        }
+-+//
+-+//        public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
+-+//            if(mCameraHolder.getSurface() == null) {
+-+//                return;
+-+//            }
+-+//
+-+//            try {
+-+//                mCamera.stopPreview();
+-+//            } catch(Exception e) {
+-+//
+-+//            }
+-+//
+-+//            try {
+-+//                mCamera.setPreviewDisplay(mCameraHolder);
+-+//                mCamera.startPreview();
+-+//            } catch (Exception e) {
+-+//
+-+//            }
+-+//        }
+-+//
+-+//        public void surfaceDestroyed(SurfaceHolder holder) {
+-+//            if(mCamera != null) {
+-+//                mCamera.stopPreview();
+-+//                mCamera.release();
+-+//                mCamera = null;
+-+//            }
+-+//        }
+-+}
+-Index: .idea/misc.xml
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+-<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<project version=\"4\">\r\n  <component name=\"ProjectRootManager\" version=\"2\" languageLevel=\"JDK_1_8\" default=\"true\" project-jdk-name=\"1.8\" project-jdk-type=\"JavaSDK\">\r\n    <output url=\"file://$PROJECT_DIR$/build/classes\" />\r\n  </component>\r\n  <component name=\"ProjectType\">\r\n    <option name=\"id\" value=\"Android\" />\r\n  </component>\r\n  <component name=\"SuppressABINotification\">\r\n    <option name=\"modulesWithSuppressedNotConfigured\">\r\n      <set>\r\n        <option value=\"vision0.1.app\" />\r\n      </set>\r\n    </option>\r\n  </component>\r\n</project>
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+---- .idea/misc.xml	(revision 687a0b118a9dcf682548ae461fc5895e3841ff76)
+-+++ .idea/misc.xml	(date 1619526098159)
+-@@ -6,11 +6,4 @@
+-   <component name="ProjectType">
+-     <option name="id" value="Android" />
+-   </component>
+--  <component name="SuppressABINotification">
+--    <option name="modulesWithSuppressedNotConfigured">
+--      <set>
+--        <option value="vision0.1.app" />
+--      </set>
+--    </option>
+--  </component>
+- </project>
+-\ No newline at end of file
+-Index: app/src/main/res/layout/activity_find_device.xml
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+---- app/src/main/res/layout/activity_find_device.xml	(date 1618334886000)
+-+++ app/src/main/res/layout/activity_find_device.xml	(date 1618334886000)
+-@@ -0,0 +1,68 @@
+-+<?xml version="1.0" encoding="utf-8"?>
+-+<androidx.constraintlayout.widget.ConstraintLayout
+-+    xmlns:android="http://schemas.android.com/apk/res/android"
+-+    xmlns:app="http://schemas.android.com/apk/res-auto"
+-+    xmlns:tools="http://schemas.android.com/tools"
+-+    android:layout_width="match_parent"
+-+    android:layout_height="match_parent">
+-+
+-+    <TextView
+-+        android:id="@+id/textView4"
+-+        android:layout_width="wrap_content"
+-+        android:layout_height="wrap_content"
+-+        android:text="RSSI"
+-+        app:layout_constraintBottom_toBottomOf="parent"
+-+        app:layout_constraintEnd_toEndOf="parent"
+-+        app:layout_constraintHorizontal_bias="0.369"
+-+        app:layout_constraintStart_toStartOf="parent"
+-+        app:layout_constraintTop_toTopOf="parent"
+-+        app:layout_constraintVertical_bias="0.22" />
+-+
+-+    <TextView
+-+        android:id="@+id/device_rssi"
+-+        android:layout_width="wrap_content"
+-+        android:layout_height="wrap_content"
+-+        android:text="0"
+-+        app:layout_constraintBottom_toBottomOf="parent"
+-+        app:layout_constraintEnd_toEndOf="parent"
+-+        app:layout_constraintHorizontal_bias="0.617"
+-+        app:layout_constraintStart_toStartOf="parent"
+-+        app:layout_constraintTop_toTopOf="parent"
+-+        app:layout_constraintVertical_bias="0.22" />
+-+
+-+    <ListView
+-+        android:id="@+id/ListView_bt"
+-+        android:layout_width="254dp"
+-+        android:layout_height="338dp"
+-+        app:layout_constraintBottom_toBottomOf="parent"
+-+        app:layout_constraintEnd_toEndOf="parent"
+-+        app:layout_constraintHorizontal_bias="0.56"
+-+        app:layout_constraintStart_toStartOf="parent"
+-+        app:layout_constraintTop_toTopOf="parent"
+-+        app:layout_constraintVertical_bias="0.625" />
+-+
+-+    <Button
+-+        android:id="@+id/buttonScan"
+-+        android:layout_width="wrap_content"
+-+        android:layout_height="wrap_content"
+-+        android:text="Scan"
+-+        app:layout_constraintBottom_toBottomOf="parent"
+-+        app:layout_constraintEnd_toEndOf="parent"
+-+        app:layout_constraintHorizontal_bias="0.21"
+-+        app:layout_constraintStart_toStartOf="parent"
+-+        app:layout_constraintTop_toTopOf="parent"
+-+        app:layout_constraintVertical_bias="0.074" />
+-+
+-+    <Button
+-+        android:id="@+id/buttonStop"
+-+        android:layout_width="wrap_content"
+-+        android:layout_height="wrap_content"
+-+        android:text="Stop"
+-+        app:layout_constraintBottom_toBottomOf="parent"
+-+        app:layout_constraintEnd_toEndOf="parent"
+-+        app:layout_constraintHorizontal_bias="0.751"
+-+        app:layout_constraintStart_toStartOf="parent"
+-+        app:layout_constraintTop_toTopOf="parent"
+-+        app:layout_constraintVertical_bias="0.074" />
+-+
+-+</androidx.constraintlayout.widget.ConstraintLayout>
+-\ No newline at end of file
+-Index: app/src/main/java/com/example/vision01/DeviceListForm.java
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+-<+>package com.example.vision01;\r\n\r\nimport androidx.appcompat.app.AppCompatActivity;\r\n\r\nimport android.content.Intent;\r\nimport android.content.res.AssetManager;\r\nimport android.os.Bundle;\r\nimport android.util.Log;\r\nimport android.view.View;\r\nimport android.widget.AdapterView;\r\nimport android.widget.Button;\r\nimport android.widget.ListView;\r\nimport android.widget.Toast;\r\n\r\nimport com.example.vision01.Device.Device;\r\nimport com.example.vision01.Device.DeviceAdpt;\r\nimport com.example.vision01.Device.DeviceManager;\r\nimport com.example.vision01.Sqlite.DbDevice;\r\nimport com.example.vision01.Sqlite.SqliteDb;\r\n\r\nimport java.io.ByteArrayInputStream;\r\nimport java.io.ByteArrayOutputStream;\r\nimport java.io.File;\r\nimport java.io.FileOutputStream;\r\nimport java.io.IOException;\r\nimport java.io.InputStream;\r\nimport java.io.OutputStream;\r\nimport java.util.ArrayList;\r\n\r\npublic class DeviceListForm extends AppCompatActivity {\r\n    SqliteDb sqliteDb = SqliteDb.getInstance();\r\n    ArrayList<Device> devices;\r\n    ListView lvDeviceList;\r\n    Button addDeviceButton;\r\n    Button deleteDeviceButton;\r\n    DeviceAdpt deviceAdpt;\r\n\r\n    //private DeviceAdpt.Preview mPreview;\r\n    @Override\r\n    protected void onCreate(Bundle savedInstanceState) {\r\n        super.onCreate(savedInstanceState);\r\n\r\n        setContentView(R.layout.activity_device_list_form);\r\n\r\n        InitializeDevices();\r\n        initControl();\r\n\r\n\r\n       // mPreview = new DeviceAdpt.Preview(this);\r\n\r\n    }\r\n    @Override\r\n    protected void onResume() {\r\n        super.onResume();\r\n        InitializeDevices();\r\n        initControl();\r\n    }\r\n\r\n\r\n    public void initControl(){\r\n        lvDeviceList = (ListView)findViewById(R.id.listView);\r\n        addDeviceButton = (Button)findViewById(R.id.add_btn);\r\n        deleteDeviceButton = (Button)findViewById(R.id.del_btn);\r\n        deviceAdpt = new DeviceAdpt(this, devices);\r\n\r\n        lvDeviceList.setAdapter(deviceAdpt);\r\n\r\n        // add Device button 이벤트\r\n//        addDeviceButton.setOnClickListener(new View.OnClickListener(){\r\n//            @Override\r\n//            public void onClick(View v) {\r\n//                addDevice(new Device(\"test\",\"sn.0000000\", false));\r\n//                deviceAdpt.notifyDataSetChanged();\r\n//            }\r\n//        });\r\n\r\n        addDeviceButton.setOnClickListener(new View.OnClickListener(){\r\n            @Override\r\n            public void onClick(View v) {\r\n                Intent intent = new Intent(getApplicationContext(), AddDeviceForm.class);\r\n                startActivity(intent);\r\n            }\r\n        });\r\n\r\n        // delete Device button 이벤트\r\n        deleteDeviceButton.setOnClickListener(new View.OnClickListener(){\r\n            @Override\r\n            public void onClick(View v) {\r\n                //deleteDevice(0);\r\n                //deviceAdpt.notifyDataSetChanged();\r\n                int count, checked ;\r\n                count = deviceAdpt.getCount() ;\r\n\r\n                if (count > 0) {\r\n                    // 현재 선택된 아이템의 position 획득.\r\n                    //checked = lvDeviceList.getCheckedItemPosition();\r\n                    checked = 0;\r\n                    if (checked > -1 && checked < count) {\r\n                        Device chkDevice = devices.get(checked);\r\n                        // 아이템 삭제\r\n                        //items.remove(checked) ;\r\n                        DbDevice.removeDevice(chkDevice);\r\n\r\n                        // listview 선택 초기화.\r\n                        lvDeviceList.clearChoices();\r\n\r\n                        // listview 갱신.\r\n                        deviceAdpt.notifyDataSetChanged();\r\n                    }\r\n                    else{\r\n                        Toast.makeText(getApplicationContext(),\"삭제할 제품을 선택하세요.\",Toast.LENGTH_SHORT).show();\r\n                    }\r\n                }\r\n            }\r\n        });\r\n\r\n        lvDeviceList.setOnItemClickListener(new AdapterView.OnItemClickListener() {\r\n            @Override\r\n            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {\r\n                //lvDeviceList.item\r\n            }\r\n        });\r\n\r\n    }\r\n/*\r\n    public void addDevice(Device device){\r\n        devices.add(device);\r\n    }\r\n\r\n    public void deleteDevice(int position){\r\n        devices.remove(position);\r\n    }\r\n*/\r\n    // 추후에 내부 디비 연동해서 불러오기.\r\n    public void InitializeDevices()\r\n    {\r\n\r\n        DeviceManager.devices = sqliteDb.dbDevice.getDevices();\r\n        devices = DeviceManager.devices;\r\n\r\n        /*devices.add(new Device(\"차키\", \"sn.1234567\",true));\r\n        devices.add(new Device(\"에어팟\", \"sn.1234568\",true));\r\n        devices.add(new Device(\"지갑\", \"sn.1234569\",false));*/\r\n        Log.e(\"sql log\", \"devices : \" + DeviceManager.devices);\r\n    }\r\n\r\n}
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+---- app/src/main/java/com/example/vision01/DeviceListForm.java	(revision 687a0b118a9dcf682548ae461fc5895e3841ff76)
+-+++ app/src/main/java/com/example/vision01/DeviceListForm.java	(date 1619523612000)
+-@@ -1,15 +1,31 @@
+- package com.example.vision01;
+- 
+- import androidx.appcompat.app.AppCompatActivity;
+-+import androidx.appcompat.widget.PopupMenu;
+-+import androidx.core.app.ActivityCompat;
+- 
+-+import android.Manifest;
+-+import android.bluetooth.BluetoothAdapter;
+-+import android.bluetooth.BluetoothDevice;
+-+import android.bluetooth.BluetoothGatt;
+-+import android.bluetooth.BluetoothGattCallback;
+-+import android.content.BroadcastReceiver;
+-+import android.content.Context;
+- import android.content.Intent;
+-+import android.content.IntentFilter;
+- import android.content.res.AssetManager;
+-+import android.graphics.Color;
+- import android.os.Bundle;
+- import android.util.Log;
+-+import android.view.ContextMenu;
+-+import android.view.Menu;
+-+import android.view.MenuInflater;
+-+import android.view.MenuItem;
+- import android.view.View;
+- import android.widget.AdapterView;
+- import android.widget.Button;
+- import android.widget.ListView;
+-+import android.widget.TextView;
+- import android.widget.Toast;
+- 
+- import com.example.vision01.Device.Device;
+-@@ -26,6 +42,7 @@
+- import java.io.InputStream;
+- import java.io.OutputStream;
+- import java.util.ArrayList;
+-+import java.util.Set;
+- 
+- public class DeviceListForm extends AppCompatActivity {
+-     SqliteDb sqliteDb = SqliteDb.getInstance();
+-@@ -33,21 +50,46 @@
+-     ListView lvDeviceList;
+-     Button addDeviceButton;
+-     Button deleteDeviceButton;
+-+    TextView textState;
+-     DeviceAdpt deviceAdpt;
+-+    Device selectedDevice; //선택된 제품 (삭제하거나 rssi 찾을 때 사용)
+-+    int stateFlag = 0;  //0 ->찾기 1 -> 추가 2 -> 수정 3-> 삭제
+-+    private BluetoothAdapter BTAdapter;
+-+    public static Context mContext;
+-+
+-+    private final static int REQUEST_ENABLE_BT = 1;
+-+
+-+    public static DeviceListForm dlf;
+-+
+- 
+-     //private DeviceAdpt.Preview mPreview;
+-     @Override
+-     protected void onCreate(Bundle savedInstanceState) {
+-         super.onCreate(savedInstanceState);
+--
+-         setContentView(R.layout.activity_device_list_form);
+--
+-         InitializeDevices();
+-+        checkLocationPermissions();
+-+        enableBluetooth();
+-+        dlf=this;
+-         initControl();
+-+        //bindList();
+-+
+- 
+-+
+-+        mContext = this;
+- 
+-        // mPreview = new DeviceAdpt.Preview(this);
+- 
+-+    }
+-+    public void initControl(){
+-+        lvDeviceList = (ListView)findViewById(R.id.listView);
+-+        textState = (TextView)findViewById(R.id.text_state);
+-+        deviceAdpt = new DeviceAdpt(this, devices);
+-+
+-+        registerReceiver(receiver, new IntentFilter(BluetoothDevice.ACTION_FOUND));
+-+
+-+        lvDeviceList.setAdapter(deviceAdpt);
+-+
+-     }
+-     @Override
+-     protected void onResume() {
+-@@ -56,81 +98,129 @@
+-         initControl();
+-     }
+- 
+-+    private void getRSSIList(){
+-+        //나중에 ARCamera로 바꾸면 됨
+-+        Log.e("BLE", "get RSSI LIST");
+-+        BTAdapter.startDiscovery();
+-+        Log.e("BLE", "startDiscovery");
+-+    }
+- 
+--    public void initControl(){
+--        lvDeviceList = (ListView)findViewById(R.id.listView);
+--        addDeviceButton = (Button)findViewById(R.id.add_btn);
+--        deleteDeviceButton = (Button)findViewById(R.id.del_btn);
+--        deviceAdpt = new DeviceAdpt(this, devices);
+-+    @Override
+-+    public boolean onCreateOptionsMenu(Menu menu)
+-+    {
+-+        MenuInflater inflater = getMenuInflater();
+- 
+--        lvDeviceList.setAdapter(deviceAdpt);
+-+        inflater.inflate(R.menu.device_popup_menu, menu);
+- 
+--        // add Device button 이벤트
+--//        addDeviceButton.setOnClickListener(new View.OnClickListener(){
+--//            @Override
+--//            public void onClick(View v) {
+--//                addDevice(new Device("test","sn.0000000", false));
+--//                deviceAdpt.notifyDataSetChanged();
+--//            }
+--//        });
+-+        return true;
+-+    }
+- 
+--        addDeviceButton.setOnClickListener(new View.OnClickListener(){
+--            @Override
+--            public void onClick(View v) {
+--                Intent intent = new Intent(getApplicationContext(), AddDeviceForm.class);
+--                startActivity(intent);
+--            }
+--        });
+-+    @Override
+-+    public boolean onOptionsItemSelected (MenuItem item)
+-+    {
+-+        Toast toast = Toast.makeText(getApplicationContext(),"", Toast.LENGTH_LONG);
+-+
+-+        switch(item.getItemId())
+-+        {
+-+            case R.id.action_add:
+-+                stateFlag = 1;
+-+                AddDevice();
+-+                break;
+-+            case R.id.action_modify:
+-+                textState.setText("제품 수정");
+-+                stateFlag = 2;
+-+                break;
+-+            case R.id.action_delete:
+-+                textState.setText("제품 삭제");
+-+                stateFlag = 3;
+-+                break;
+-+        }
+-+        toast.show();
+-+
+-+        return super.onOptionsItemSelected(item);
+-+    }
+-+
+-+
+-+    public void ConfirmState(Device device) {
+-+        //선택된 제품의 정보를 저장
+-+        selectedDevice = device;
+-+
+-+        //찾기
+-+        switch (stateFlag){
+-+            case 0:
+-+                //찾기
+-+                getRSSIList();
+-+                break;
+-+            case 2:
+-+                //수정
+-+                break;
+-+            case 3:
+-+                //삭제
+-+                DeleteDevice();
+-+                break;
+-+        }
+-+    }
+-+    private void AddDevice(){
+-+        Intent intent = new Intent(getApplicationContext(), AddDeviceForm.class);
+-+        startActivity(intent);
+-+    }
+-+    private void DeleteDevice() {
+- 
+--        // delete Device button 이벤트
+--        deleteDeviceButton.setOnClickListener(new View.OnClickListener(){
+--            @Override
+--            public void onClick(View v) {
+--                //deleteDevice(0);
+--                //deviceAdpt.notifyDataSetChanged();
+--                int count, checked ;
+--                count = deviceAdpt.getCount() ;
+-+        int count, checked ;
+-+        count = deviceAdpt.getCount() ;
+- 
+--                if (count > 0) {
+--                    // 현재 선택된 아이템의 position 획득.
+--                    //checked = lvDeviceList.getCheckedItemPosition();
+--                    checked = 0;
+--                    if (checked > -1 && checked < count) {
+--                        Device chkDevice = devices.get(checked);
+--                        // 아이템 삭제
+--                        //items.remove(checked) ;
+--                        DbDevice.removeDevice(chkDevice);
+-+        if (count > 0) {
+-+            // 현재 선택된 아이템의 position 획득.
+-+            //checked = lvDeviceList.getCheckedItemPosition();
+-+            checked = selectedDevice.getPosition();
+-+            if (checked > -1 && checked < count) {
+-+                Device chkDevice = devices.get(checked);
+-+                // 아이템 삭제
+-+                //items.remove(checked) ;
+-+                DbDevice.removeDevice(chkDevice);
+- 
+--                        // listview 선택 초기화.
+--                        lvDeviceList.clearChoices();
+-+                // listview 선택 초기화.
+-+                lvDeviceList.clearChoices();
+- 
+--                        // listview 갱신.
+--                        deviceAdpt.notifyDataSetChanged();
+--                    }
+--                    else{
+--                        Toast.makeText(getApplicationContext(),"삭제할 제품을 선택하세요.",Toast.LENGTH_SHORT).show();
+--                    }
+--                }
+--            }
+--        });
+--
+--        lvDeviceList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+--            @Override
+--            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+--                //lvDeviceList.item
+-+                // listview 갱신.
+-+                deviceAdpt.notifyDataSetChanged();
+-+            }
+-+            else{
+-+                Toast.makeText(getApplicationContext(),"삭제할 제품을 선택하세요.",Toast.LENGTH_SHORT).show();
+-+            }
+-+        }
+-+        textState.setText("제품 찾기");
+-+        stateFlag = 0;  //다시 찾기 상태
+-+        Intent intent = getIntent();
+-+        finish();
+-+        startActivity(intent);
+-+    }
+-+    private final BroadcastReceiver receiver = new BroadcastReceiver(){
+-+        @Override
+-+        public void onReceive(Context context, Intent intent) {
+-+            String action = intent.getAction();
+-+            if(BluetoothDevice.ACTION_FOUND.equals(action)) {
+-+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+-+                String sn = intent.getStringExtra(BluetoothDevice.EXTRA_UUID);
+-+                int rssi = intent.getShortExtra(BluetoothDevice.EXTRA_RSSI,Short.MIN_VALUE);
+-+                String name = intent.getStringExtra(BluetoothDevice.EXTRA_NAME);
+-+                Log.e("rssi", "name : " + device.getName() + "(sn."+ device.getAddress() +") => " + rssi + "dBm\n");
+-+                MatchDevice(device.getAddress(),rssi);
+-             }
+--        });
+--
+--    }
+--/*
+--    public void addDevice(Device device){
+--        devices.add(device);
+--    }
+--
+--    public void deleteDevice(int position){
+--        devices.remove(position);
+-+        }
+-+    };
+-+    private boolean MatchDevice(String those_num, int rssi){
+-+        String my_num = selectedDevice.getSerialNum();
+-+        //검색된 넘버를 replace하기
+-+        those_num = those_num.replace(":","");
+-+        Log.e("replace sn", those_num + " my device : " + my_num);
+-+        //일치 한다면 toast하고 true
+-+        if(my_num.equals(those_num)){
+-+            Toast.makeText(getApplicationContext(),"제품이 주위에 있습니다. -> " + rssi + "dBm",Toast.LENGTH_SHORT).show();
+-+            return true;
+-+        }
+-+        return false;
+-     }
+--*/
+-     // 추후에 내부 디비 연동해서 불러오기.
+-     public void InitializeDevices()
+-     {
+-@@ -143,5 +233,24 @@
+-         devices.add(new Device("지갑", "sn.1234569",false));*/
+-         Log.e("sql log", "devices : " + DeviceManager.devices);
+-     }
+--
+-+    private void checkLocationPermissions(){
+-+        // Get permission
+-+        String[] permission_list = {
+-+                Manifest.permission.ACCESS_FINE_LOCATION,
+-+                Manifest.permission.ACCESS_COARSE_LOCATION
+-+        };
+-+        ActivityCompat.requestPermissions(this, permission_list,  1);
+-+    }
+-+    private void enableBluetooth(){
+-+        // Enable bluetooth
+-+        BTAdapter = BluetoothAdapter.getDefaultAdapter();
+-+        if (!BTAdapter.isEnabled()) {
+-+            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+-+            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+-+        }
+-+    }
+-+    public void getFindForm() {
+-+        Intent intent = new Intent(getApplicationContext(), FindForm.class);
+-+        startActivity(intent);
+-+    }
+- }
+-\ No newline at end of file
+-Index: app/src/main/java/com/example/vision01/Device/Device.java
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+-<+>package com.example.vision01.Device;\r\n\r\npublic class Device {\r\n    String name;\r\n    String serialNum;\r\n    boolean isTheftMode;\r\n\r\n    public Device(String name, String serialNum, boolean isTheftMode){\r\n        this.name = name;\r\n        this.serialNum = serialNum;\r\n        this.isTheftMode = isTheftMode;\r\n    }\r\n\r\n\r\n    public String getName() {\r\n        return name;\r\n    }\r\n\r\n    public void setName(String name) {\r\n        this.name = name;\r\n    }\r\n\r\n    public String getSerialNum() {\r\n        return serialNum;\r\n    }\r\n\r\n    public void setSerialNum(String serialNum) {\r\n        this.serialNum = serialNum;\r\n    }\r\n\r\n    public boolean isTheftMode() {\r\n        return isTheftMode;\r\n    }\r\n\r\n    public void setTheftMode(boolean theftMode) {\r\n        isTheftMode = theftMode;\r\n    }\r\n}\r\n
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+---- app/src/main/java/com/example/vision01/Device/Device.java	(revision 687a0b118a9dcf682548ae461fc5895e3841ff76)
+-+++ app/src/main/java/com/example/vision01/Device/Device.java	(date 1619226404000)
+-@@ -1,9 +1,11 @@
+- package com.example.vision01.Device;
+- 
+- public class Device {
+-+    String id;
+-     String name;
+-     String serialNum;
+-     boolean isTheftMode;
+-+    int position;
+- 
+-     public Device(String name, String serialNum, boolean isTheftMode){
+-         this.name = name;
+-@@ -11,6 +13,27 @@
+-         this.isTheftMode = isTheftMode;
+-     }
+- 
+-+    public Device(String id, String name, String serialNum, boolean isTheftMode){
+-+        this.id = id;
+-+        this.name = name;
+-+        this.serialNum = serialNum;
+-+        this.isTheftMode = isTheftMode;
+-+    }
+-+    public Device(String id, String name, String serialNum, boolean isTheftMode, int position){
+-+        this.id = id;
+-+        this.name = name;
+-+        this.serialNum = serialNum;
+-+        this.isTheftMode = isTheftMode;
+-+        this.position = position;
+-+    }
+-+
+-+    public String getID() {
+-+        return id;
+-+    }
+-+
+-+    public void setID(String id) {
+-+        this.id = id;
+-+    }
+- 
+-     public String getName() {
+-         return name;
+-@@ -35,4 +58,12 @@
+-     public void setTheftMode(boolean theftMode) {
+-         isTheftMode = theftMode;
+-     }
+-+
+-+    public int getPosition() {
+-+        return position;
+-+    }
+-+
+-+    public void setPosition(int position) {
+-+        this.position = position;
+-+    }
+- }
+-Index: app/src/main/java/com/example/vision01/Device/DeviceAdpt.java
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+-<+>package com.example.vision01.Device;\r\n\r\nimport android.content.Context;\r\n//import android.graphics.Camera;\r\nimport android.hardware.Camera;\r\nimport android.view.LayoutInflater;\r\nimport android.view.Surface;\r\nimport android.view.SurfaceHolder;\r\nimport android.view.SurfaceView;\r\nimport android.view.View;\r\nimport android.view.ViewGroup;\r\nimport android.widget.BaseAdapter;\r\nimport android.widget.Button;\r\nimport android.widget.Switch;\r\nimport android.widget.Toast;\r\n\r\n\r\nimport com.example.vision01.JoinForm;\r\nimport com.example.vision01.MainActivity;\r\nimport com.example.vision01.R;\r\n\r\nimport java.io.IOException;\r\nimport java.util.ArrayList;\r\n\r\npublic class DeviceAdpt extends BaseAdapter {\r\n    Context mContext = null;\r\n    LayoutInflater mLayoutInflater = null;\r\n    ArrayList<Device> devices;\r\n    Camera camera;\r\n    SurfaceHolder mHolder=null;\r\n    //-------------------------------------\r\n    private Preview mPreview = null;\r\n\r\n    class Preview extends SurfaceView implements SurfaceHolder.Callback {\r\n\r\n        Camera mCamera;\r\n\r\n        public Preview(Context context) {\r\n            super(context);\r\n\r\n            mContext = context;\r\n            mHolder = getHolder();\r\n            mHolder.addCallback(this);\r\n            mHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);\r\n        }\r\n        @Override\r\n        public void surfaceCreated(SurfaceHolder holder) {\r\n            //카메라 객체를 받아와 카메라로부터 영상을 받을수있도록 초기화\r\n            mCamera = Camera.open();\r\n            try {\r\n                mCamera.setPreviewDisplay(holder);\r\n            } catch (IOException exception) {\r\n                mCamera.release();\r\n                mCamera = null;\r\n            }\r\n        }\r\n\r\n        @Override//액티비티가 비활성 상태일 때 화면에 표시X\r\n        public void surfaceDestroyed(SurfaceHolder holder) {\r\n            mCamera.stopPreview();\r\n            mCamera = null;\r\n        }\r\n\r\n        @Override//카메라 객체에서 프리뷰 영상을 표시할 영역의 크기 설정\r\n        public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {\r\n            Camera.Parameters parameters = mCamera.getParameters();\r\n            parameters.setPreviewSize(w, h);\r\n            mCamera.setParameters(parameters);\r\n            mCamera.startPreview();\r\n        }\r\n    }\r\n    //-------------------------------------\r\n\r\n    public DeviceAdpt(Context context, ArrayList<Device> devices){\r\n        this.mContext = context;\r\n        this.devices  = devices;\r\n        mLayoutInflater = LayoutInflater.from(mContext);\r\n        mPreview = new Preview(this.mContext);\r\n        //setContentView(mPreview);\r\n    }\r\n\r\n    @Override\r\n    public int getCount() {\r\n        return devices.size();\r\n    }\r\n\r\n    @Override\r\n    public Device getItem(int position) {\r\n        return devices.get(position);\r\n    }\r\n\r\n    @Override\r\n    public long getItemId(int position) {\r\n        return position;\r\n    }\r\n\r\n    @Override\r\n    public View getView(int position, View convertView, ViewGroup parent) {\r\n        View view = mLayoutInflater.inflate(R.layout.device_list_view_item, null);\r\n\r\n        Button btnDeviceInfo = (Button)view.findViewById(R.id.btn_device_info);\r\n        Switch isTheftMode = (Switch) view.findViewById(R.id.switch_is_theft_mode);\r\n\r\n        btnDeviceInfo.setText(devices.get(position).name + \" ( \" + devices.get(position).serialNum + \" )\");\r\n\r\n        btnDeviceInfo.setOnClickListener(new View.OnClickListener(){\r\n            // list item을 클릭 했을때 나올 페이지 또는 기능을 추가하는 곳\r\n            // 다음 액티비티 (카메라)\r\n            @Override\r\n            public void onClick(View v) {\r\n\r\n                Toast.makeText(mContext,\r\n                        getItem(position).getName(),\r\n                        Toast.LENGTH_SHORT).show();\r\n\r\n                // mPreview.surfaceCreated(mHolder);\r\n\r\n            }\r\n        });\r\n        // 체크 이벤트\r\n        // isTheftMode.setOnCheckedChangeListener();\r\n\r\n        isTheftMode.setChecked(devices.get(position).isTheftMode);\r\n\r\n        return view;\r\n    }\r\n}\r\n
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+---- app/src/main/java/com/example/vision01/Device/DeviceAdpt.java	(revision 687a0b118a9dcf682548ae461fc5895e3841ff76)
+-+++ app/src/main/java/com/example/vision01/Device/DeviceAdpt.java	(date 1619523612000)
+-@@ -2,81 +2,43 @@
+- 
+- import android.content.Context;
+- //import android.graphics.Camera;
+-+import android.content.Intent;
+- import android.hardware.Camera;
+-+import android.util.Log;
+- import android.view.LayoutInflater;
+--import android.view.Surface;
+- import android.view.SurfaceHolder;
+- import android.view.SurfaceView;
+- import android.view.View;
+- import android.view.ViewGroup;
+- import android.widget.BaseAdapter;
+- import android.widget.Button;
+-+import android.widget.CompoundButton;
+- import android.widget.Switch;
+-+import android.widget.TextView;
+- import android.widget.Toast;
+- 
+- 
+--import com.example.vision01.JoinForm;
+--import com.example.vision01.MainActivity;
+-+import com.example.vision01.DeviceListForm;
+-+import com.example.vision01.FindForm;
+- import com.example.vision01.R;
+-+import com.example.vision01.Sqlite.SqliteDb;
+- 
+- import java.io.IOException;
+- import java.util.ArrayList;
+- 
+- public class DeviceAdpt extends BaseAdapter {
+-+    SqliteDb sqliteDb = SqliteDb.getInstance();
+-     Context mContext = null;
+-     LayoutInflater mLayoutInflater = null;
+-     ArrayList<Device> devices;
+-+    public TextView menu;
+-     Camera camera;
+-     SurfaceHolder mHolder=null;
+--    //-------------------------------------
+--    private Preview mPreview = null;
+--
+--    class Preview extends SurfaceView implements SurfaceHolder.Callback {
+--
+--        Camera mCamera;
+--
+--        public Preview(Context context) {
+--            super(context);
+--
+--            mContext = context;
+--            mHolder = getHolder();
+--            mHolder.addCallback(this);
+--            mHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+--        }
+--        @Override
+--        public void surfaceCreated(SurfaceHolder holder) {
+--            //카메라 객체를 받아와 카메라로부터 영상을 받을수있도록 초기화
+--            mCamera = Camera.open();
+--            try {
+--                mCamera.setPreviewDisplay(holder);
+--            } catch (IOException exception) {
+--                mCamera.release();
+--                mCamera = null;
+--            }
+--        }
+--
+--        @Override//액티비티가 비활성 상태일 때 화면에 표시X
+--        public void surfaceDestroyed(SurfaceHolder holder) {
+--            mCamera.stopPreview();
+--            mCamera = null;
+--        }
+--
+--        @Override//카메라 객체에서 프리뷰 영상을 표시할 영역의 크기 설정
+--        public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
+--            Camera.Parameters parameters = mCamera.getParameters();
+--            parameters.setPreviewSize(w, h);
+--            mCamera.setParameters(parameters);
+--            mCamera.startPreview();
+--        }
+--    }
+--    //-------------------------------------
+- 
+-     public DeviceAdpt(Context context, ArrayList<Device> devices){
+-         this.mContext = context;
+-         this.devices  = devices;
+-         mLayoutInflater = LayoutInflater.from(mContext);
+--        mPreview = new Preview(this.mContext);
+--        //setContentView(mPreview);
+-     }
+- 
+-     @Override
+-@@ -100,28 +62,37 @@
+- 
+-         Button btnDeviceInfo = (Button)view.findViewById(R.id.btn_device_info);
+-         Switch isTheftMode = (Switch) view.findViewById(R.id.switch_is_theft_mode);
+--
+-+        // menu = (TextView)view.findViewById(R.id.popup_menu_text);
+-         btnDeviceInfo.setText(devices.get(position).name + " ( " + devices.get(position).serialNum + " )");
+-+        isTheftMode.setChecked(devices.get(position).isTheftMode);
+-+
+- 
+-         btnDeviceInfo.setOnClickListener(new View.OnClickListener(){
+-             // list item을 클릭 했을때 나올 페이지 또는 기능을 추가하는 곳
+-             // 다음 액티비티 (카메라)
+-             @Override
+-             public void onClick(View v) {
+--
+-+                Device selectedDevice = new Device(devices.get(position).id,devices.get(position).name,devices.get(position).serialNum, false, position);
+-                 Toast.makeText(mContext,
+--                        getItem(position).getName(),
+-+                        getItem(position).getName() + "( " + getItem(position).getSerialNum() + " )",
+-                         Toast.LENGTH_SHORT).show();
+-+                ((DeviceListForm)DeviceListForm.mContext).ConfirmState(selectedDevice);
+- 
+--                // mPreview.surfaceCreated(mHolder);
+--
+-+                DeviceListForm.dlf.getFindForm();
+-             }
+-         });
+-         // 체크 이벤트
+--        // isTheftMode.setOnCheckedChangeListener();
+--
+--        isTheftMode.setChecked(devices.get(position).isTheftMode);
+-+        isTheftMode.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+-+            @Override
+-+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+-+                Device selectedDevice = new Device(devices.get(position).id,devices.get(position).name,devices.get(position).serialNum, isChecked, position);
+-+                Log.e("isTheft", isChecked + "," + devices.get(position).getID() + " " + devices.get(position).getName());
+-+                //Log.e("isTheft", isChecked + "," + devices.get(position).isTheftMode());
+-+                sqliteDb.dbDevice.updateIsTheftMode(selectedDevice);
+-+            }
+-+        });
+- 
+-         return view;
+-     }
+- }
+-+
+-Index: .idea/vcs.xml
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+-<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<project version=\"4\">\r\n  <component name=\"VcsDirectoryMappings\">\r\n    <mapping directory=\"$PROJECT_DIR$\" vcs=\"Git\" />\r\n  </component>\r\n</project>
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+---- .idea/vcs.xml	(revision 687a0b118a9dcf682548ae461fc5895e3841ff76)
+-+++ .idea/vcs.xml	(date 1619526098177)
+-@@ -1,6 +1,6 @@
+- <?xml version="1.0" encoding="UTF-8"?>
+- <project version="4">
+-   <component name="VcsDirectoryMappings">
+--    <mapping directory="$PROJECT_DIR$" vcs="Git" />
+-+    <mapping directory="" vcs="Git" />
+-   </component>
+- </project>
+-\ No newline at end of file
+-Index: .idea/gradle.xml
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+-<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<project version=\"4\">\r\n  <component name=\"GradleMigrationSettings\" migrationVersion=\"1\" />\r\n  <component name=\"GradleSettings\">\r\n    <option name=\"linkedExternalProjectsSettings\">\r\n      <GradleProjectSettings>\r\n        <option name=\"testRunner\" value=\"PLATFORM\" />\r\n        <option name=\"disableWrapperSourceDistributionNotification\" value=\"true\" />\r\n        <option name=\"distributionType\" value=\"DEFAULT_WRAPPED\" />\r\n        <option name=\"externalProjectPath\" value=\"$PROJECT_DIR$\" />\r\n        <option name=\"gradleJvm\" value=\"1.8\" />\r\n        <option name=\"modules\">\r\n          <set>\r\n            <option value=\"$PROJECT_DIR$\" />\r\n            <option value=\"$PROJECT_DIR$/app\" />\r\n          </set>\r\n        </option>\r\n        <option name=\"resolveModulePerSourceSet\" value=\"false\" />\r\n        <option name=\"useQualifiedModuleNames\" value=\"true\" />\r\n      </GradleProjectSettings>\r\n    </option>\r\n  </component>\r\n</project>
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+---- .idea/gradle.xml	(revision 687a0b118a9dcf682548ae461fc5895e3841ff76)
+-+++ .idea/gradle.xml	(date 1619526098223)
+-@@ -1,11 +1,9 @@
+- <?xml version="1.0" encoding="UTF-8"?>
+- <project version="4">
+--  <component name="GradleMigrationSettings" migrationVersion="1" />
+-   <component name="GradleSettings">
+-     <option name="linkedExternalProjectsSettings">
+-       <GradleProjectSettings>
+-         <option name="testRunner" value="PLATFORM" />
+--        <option name="disableWrapperSourceDistributionNotification" value="true" />
+-         <option name="distributionType" value="DEFAULT_WRAPPED" />
+-         <option name="externalProjectPath" value="$PROJECT_DIR$" />
+-         <option name="gradleJvm" value="1.8" />
+-Index: app/src/main/AndroidManifest.xml
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+-<+><?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n    package=\"com.example.vision01\">\r\n\r\n    <uses-permission android:name=\"android.permission.CAMERA\" />\r\n    <uses-feature android:glEsVersion=\"0x00030000\" android:required=\"true\" />\r\n    <uses-feature android:name=\"android.hardware.camera.ar\" />\r\n    <uses-feature\r\n        android:name=\"android.hardware.camera2\"\r\n        android:required=\"true\" />\r\n\r\n    <application\r\n        android:allowBackup=\"true\"\r\n        android:icon=\"@mipmap/ic_launcher\"\r\n        android:label=\"@string/app_name\"\r\n        android:roundIcon=\"@mipmap/ic_launcher_round\"\r\n        android:supportsRtl=\"true\"\r\n        android:theme=\"@style/Theme.Vision01\"\r\n        android:usesCleartextTraffic=\"true\">\r\n        <activity\r\n            android:name=\".ARCamera\"\r\n            android:label=\"@string/title_activity_a_r_camera\"\r\n            android:theme=\"@style/Theme.Vision01.NoActionBar\"></activity>\r\n        <activity android:name=\".DeviceListForm\" />\r\n        <activity android:name=\".LoginForm\">\r\n            <intent-filter>\r\n                <action android:name=\"android.intent.action.MAIN\" />\r\n\r\n                <category android:name=\"android.intent.category.LAUNCHER\" />\r\n            </intent-filter>\r\n        </activity>\r\n        <activity android:name=\".JoinForm\" />\r\n        <activity android:name=\".MainActivity\" />\r\n        <meta-data android:name=\"com.google.ar.core\" android:value=\"required\" />\r\n    </application>\r\n\r\n</manifest>
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+---- app/src/main/AndroidManifest.xml	(revision 687a0b118a9dcf682548ae461fc5895e3841ff76)
+-+++ app/src/main/AndroidManifest.xml	(date 1619519958000)
+-@@ -2,6 +2,16 @@
+- <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+-     package="com.example.vision01">
+- 
+-+    <!--블루투스 권한-->
+-+    <uses-permission android:name="android.permission.BLUETOOTH" />
+-+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+-+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+-+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+-+
+-+    <!--<uses-sdk
+-+        android:minSdkVersion="19"
+-+        android:targetSdkVersion="21" /> -->
+-+
+-     <uses-permission android:name="android.permission.CAMERA" />
+-     <uses-feature android:glEsVersion="0x00030000" android:required="true" />
+-     <uses-feature android:name="android.hardware.camera.ar" />
+-@@ -31,6 +41,8 @@
+-         </activity>
+-         <activity android:name=".JoinForm" />
+-         <activity android:name=".MainActivity" />
+-+        <activity android:name=".AddDeviceForm" />
+-+        <activity android:name=".FindForm" />
+-         <meta-data android:name="com.google.ar.core" android:value="required" />
+-     </application>
+- 
+-Index: app/src/main/java/com/example/vision01/Sqlite/DbDevice.java
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+-<+>package com.example.vision01.Sqlite;\r\n\r\nimport android.content.ContentValues;\r\nimport android.database.Cursor;\r\nimport android.database.sqlite.SQLiteDatabase;\r\nimport android.database.sqlite.SQLiteException;\r\nimport android.util.Log;\r\n\r\nimport com.example.vision01.Device.Device;\r\n\r\nimport java.util.ArrayList;\r\n\r\npublic class DbDevice {\r\n    private SqliteDb sqliteDb;\r\n    private static SQLiteDatabase database;\r\n    private Cursor cursor;\r\n\r\n    public DbDevice(SqliteDb sqliteDb){\r\n        this.sqliteDb = sqliteDb;\r\n        database = sqliteDb.database;\r\n        if(database == null){\r\n            Log.e(\"Db\",\"database nullnullnull!!!!!!!!\");\r\n        }\r\n    }\r\n\r\n    public boolean addDevice(Device device){\r\n        if(database == null)    return false;\r\n        try {\r\n            Log.e(\"Db\",\"Add Device!!!\");\r\n            ContentValues row = new ContentValues();\r\n            row.put(\"name\", device.getName());\r\n            row.put(\"serialNum\", device.getSerialNum());\r\n            row.put(\"isTheftMode\", device.isTheftMode());\r\n\r\n            database.insertOrThrow(\"tbl_device\", null, row);\r\n        }catch(SQLiteException e)\r\n        {\r\n            Log.e(\"Db\",e.toString());\r\n            sqliteDb.closeDatabase();\r\n            return false;\r\n        }\r\n        finally\r\n        {\r\n            sqliteDb.openDatabase();\r\n        }\r\n        return true;\r\n    }\r\n    public static boolean removeDevice(Device device){\r\n        if(database == null)    return false;\r\n\r\n        try{\r\n            database.delete(\"tbl_device\", \"serialNum = ?\", new String[]{device.getSerialNum()});\r\n            Log.e(\"Db\",\"DELETED : \" + device.toString());\r\n            return true;\r\n        }catch(SQLiteException e) {\r\n            Log.e(\"Db\", e.toString());\r\n        }\r\n        return false;\r\n\r\n    }\r\n    public boolean getIsTheftMode(Device device){\r\n        if(database == null)    return false;\r\n\r\n        String query = \"SELECT * FROM tbl_device\";\r\n\r\n        boolean isTheftMode = false;\r\n\r\n        cursor = database.rawQuery(query, null);\r\n        cursor.moveToFirst();\r\n\r\n        int count = cursor.getCount() - 1;\r\n        for(int i = 0; i < count; i++){\r\n            isTheftMode = cursor.getInt(cursor.getColumnIndexOrThrow(\"isTheftMode\")) == 1;\r\n\r\n            cursor.moveToNext();\r\n        }\r\n        cursor.close();\r\n        return isTheftMode;\r\n    }\r\n\r\n    public boolean updateName(Device device){\r\n        if(database == null)    return false;\r\n\r\n        try{\r\n            ContentValues values = new ContentValues();\r\n\r\n            values.put(\"name\", device.getName());\r\n\r\n            database.update(\"tbl_device\",values,\"serialNum = ? \", new String[]{device.getSerialNum()});\r\n\r\n            return true;\r\n        }catch(SQLiteException e) {\r\n            Log.e(\"Db\", e.toString());\r\n        }\r\n        return false;\r\n    }\r\n\r\n    public boolean updateIsTheftMode(Device device){\r\n        if(database == null)    return false;\r\n\r\n        try{\r\n            ContentValues values = new ContentValues();\r\n\r\n            values.put(\"isTheftMode\", device.isTheftMode());\r\n\r\n            database.update(\"tbl_device\",values,\"serialNum = ? \", new String[]{device.getSerialNum()});\r\n\r\n            return true;\r\n        }catch(SQLiteException e) {\r\n            Log.e(\"Db\", e.toString());\r\n        }\r\n        return false;\r\n    }\r\n    public ArrayList<Device> getDevices(){\r\n        ArrayList<Device> devices = new ArrayList<Device>();\r\n\r\n        if(database == null){\r\n            Log.e(\"Db\", \"DB NULL!!!!!!!\");\r\n            return null;\r\n        }\r\n        String query = \"SELECT * FROM tbl_device\";\r\n\r\n        cursor = database.rawQuery(query, null);\r\n        cursor.moveToFirst();\r\n\r\n        int count = cursor.getCount() - 1;\r\n        for(int i = 0; i < count + 1; i++){\r\n            Device device = new Device(\r\n                    cursor.getString(cursor.getColumnIndexOrThrow(\"name\")),\r\n                    cursor.getString(cursor.getColumnIndexOrThrow(\"serialNum\")),\r\n                    cursor.getInt(cursor.getColumnIndexOrThrow(\"isTheftMode\"))==1);\r\n            devices.add(device);\r\n            cursor.moveToNext();\r\n        }\r\n\r\n        cursor.close();\r\n        return devices;\r\n    }\r\n}
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+---- app/src/main/java/com/example/vision01/Sqlite/DbDevice.java	(revision 687a0b118a9dcf682548ae461fc5895e3841ff76)
+-+++ app/src/main/java/com/example/vision01/Sqlite/DbDevice.java	(date 1619227954000)
+-@@ -102,8 +102,8 @@
+-             ContentValues values = new ContentValues();
+- 
+-             values.put("isTheftMode", device.isTheftMode());
+--
+--            database.update("tbl_device",values,"serialNum = ? ", new String[]{device.getSerialNum()});
+-+            Log.e("isTheft", device.isTheftMode() + "," + device.getID());
+-+            database.update("tbl_device",values,"id = ?" , new String[]{device.getID()});
+- 
+-             return true;
+-         }catch(SQLiteException e) {
+-@@ -126,10 +126,12 @@
+-         int count = cursor.getCount() - 1;
+-         for(int i = 0; i < count + 1; i++){
+-             Device device = new Device(
+-+                    cursor.getString(cursor.getColumnIndexOrThrow("id")),
+-                     cursor.getString(cursor.getColumnIndexOrThrow("name")),
+-                     cursor.getString(cursor.getColumnIndexOrThrow("serialNum")),
+-                     cursor.getInt(cursor.getColumnIndexOrThrow("isTheftMode"))==1);
+-             devices.add(device);
+-+            Log.e("Add Device in Adapter", device.getID() + ", " + device.getName() + ", " + device.isTheftMode() );
+-             cursor.moveToNext();
+-         }
+- 
+-Index: app/src/main/java/com/example/vision01/Sqlite/SqliteDb.java
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+-<+>package com.example.vision01.Sqlite;\r\n\r\nimport android.database.SQLException;\r\nimport android.database.sqlite.SQLiteDatabase;\r\nimport android.util.Log;\r\n\r\nimport java.io.File;\r\n\r\npublic class SqliteDb {\r\n    public static SqliteDb sqliteDb;\r\n    public static DbDevice dbDevice;\r\n    public static SQLiteDatabase database;\r\n    public static String DBFILE_PREFIX = \"Database\";\r\n\r\n    public static SqliteDb getInstance(){\r\n        if(sqliteDb == null){\r\n            sqliteDb = new SqliteDb();\r\n        }\r\n        return sqliteDb;\r\n    }\r\n    private SqliteDb(){\r\n        if(database == null)\r\n            openDatabase();\r\n        if(dbDevice == null){\r\n            dbDevice = new DbDevice(this);\r\n        }\r\n    }\r\n\r\n    public boolean openDatabase(){\r\n        if(database == null){\r\n            Log.e(\"openDatabase\", \"null이라 생성\");\r\n            File file = new File(\"/storage/emulated/0/Android/data/com.example.vision01/files/DatabaseUse.sqlite\");\r\n            String dbPath = file.getAbsolutePath();\r\n            File dbFile = new File(dbPath);\r\n\r\n            if(dbFile.exists() == false)    return false;\r\n            Log.e(\"openDatabase\", \"생성 ok?\");\r\n            database = SQLiteDatabase.openDatabase(dbPath, null, SQLiteDatabase.NO_LOCALIZED_COLLATORS);\r\n        }\r\n        if(database == null) throw new SQLException();\r\n\r\n        return true;\r\n    }\r\n\r\n    public void closeDatabase(){\r\n        database.close();\r\n        database = null;\r\n    }\r\n\r\n}\r\n
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+---- app/src/main/java/com/example/vision01/Sqlite/SqliteDb.java	(revision 687a0b118a9dcf682548ae461fc5895e3841ff76)
+-+++ app/src/main/java/com/example/vision01/Sqlite/SqliteDb.java	(date 1618340026000)
+-@@ -10,7 +10,7 @@
+-     public static SqliteDb sqliteDb;
+-     public static DbDevice dbDevice;
+-     public static SQLiteDatabase database;
+--    public static String DBFILE_PREFIX = "Database";
+-+    public static String DBFILE_PREFIX = "Database_";
+- 
+-     public static SqliteDb getInstance(){
+-         if(sqliteDb == null){
+-@@ -29,7 +29,7 @@
+-     public boolean openDatabase(){
+-         if(database == null){
+-             Log.e("openDatabase", "null이라 생성");
+--            File file = new File("/storage/emulated/0/Android/data/com.example.vision01/files/DatabaseUse.sqlite");
+-+            File file = new File("/storage/emulated/0/Android/data/com.example.vision01/files/Database_Use.sqlite");
+-             String dbPath = file.getAbsolutePath();
+-             File dbFile = new File(dbPath);
+- 
+-Index: app/src/main/java/com/example/vision01/Utils/Preferences.java
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+---- app/src/main/java/com/example/vision01/Utils/Preferences.java	(date 1618338212000)
+-+++ app/src/main/java/com/example/vision01/Utils/Preferences.java	(date 1618338212000)
+-@@ -0,0 +1,267 @@
+-+package com.example.vision01.Utils;
+-+
+-+import android.content.Context;
+-+import android.content.SharedPreferences;
+-+import android.preference.PreferenceManager;
+-+
+-+import org.json.JSONArray;
+-+import org.json.JSONException;
+-+
+-+import java.util.ArrayList;
+-+
+-+//------------------------------------------------------------------------------------------------//
+-+//
+-+//------------------------------------------------------------------------------------------------//
+-+public class Preferences
+-+{
+-+
+-+    public static final String DB_UPDATE_DATE           	= "DB_UPDATE_DATE";
+-+
+-+    private static Context context = null;
+-+    //--------------------------------------------------------------------------------------------//
+-+    //
+-+    //--------------------------------------------------------------------------------------------//
+-+    public static void setContext(Context context)
+-+    {
+-+        Preferences.context = context;
+-+    }
+-+    //--------------------------------------------------------------------------------------------//
+-+    //
+-+    //--------------------------------------------------------------------------------------------//
+-+    public static void initial()
+-+    {
+-+        if( getString(DB_UPDATE_DATE) == null ) putString(DB_UPDATE_DATE, "");
+-+    }
+-+    //--------------------------------------------------------------------------------------------//
+-+    //
+-+    //--------------------------------------------------------------------------------------------//
+-+    public static void clear(Context context)
+-+    {
+-+        SharedPreferences.Editor prefsEditor = PreferenceManager
+-+                .getDefaultSharedPreferences(context)
+-+                .edit();
+-+
+-+        prefsEditor.clear();
+-+        prefsEditor.commit();
+-+    }
+-+    //--------------------------------------------------------------------------------------------//
+-+    //
+-+    //--------------------------------------------------------------------------------------------//
+-+    public static boolean getBoolean(String key)
+-+    {
+-+        return getBoolean(context, key);
+-+    }
+-+    //--------------------------------------------------------------------------------------------//
+-+    //
+-+    //--------------------------------------------------------------------------------------------//
+-+    public static boolean getBoolean(Context context, String key)
+-+    {
+-+        return PreferenceManager.getDefaultSharedPreferences(context)
+-+                .getBoolean(key, false);
+-+
+-+
+-+    }
+-+    //--------------------------------------------------------------------------------------------//
+-+    //
+-+    //--------------------------------------------------------------------------------------------//
+-+    public static void putBoolean(String key, boolean value)
+-+    {
+-+        putBoolean(context, key, value);
+-+    }
+-+    //--------------------------------------------------------------------------------------------//
+-+    //
+-+    //--------------------------------------------------------------------------------------------//
+-+    public static void putBoolean(Context context, String key, boolean value)
+-+    {
+-+        SharedPreferences.Editor prefsEditor = PreferenceManager
+-+                .getDefaultSharedPreferences(context)
+-+                .edit();
+-+
+-+        prefsEditor.putBoolean(key, value);
+-+        prefsEditor.commit();
+-+    }
+-+    //--------------------------------------------------------------------------------------------//
+-+    //
+-+    //--------------------------------------------------------------------------------------------//
+-+    public static int getInt(String key)
+-+    {
+-+        return getInt(context, key);
+-+    }
+-+    //--------------------------------------------------------------------------------------------//
+-+    //
+-+    //--------------------------------------------------------------------------------------------//
+-+    public static int getInt(Context context, String key)
+-+    {
+-+        return PreferenceManager.getDefaultSharedPreferences(context)
+-+                .getInt(key, 0);
+-+    }
+-+    //--------------------------------------------------------------------------------------------//
+-+    //
+-+    //--------------------------------------------------------------------------------------------//
+-+    public static void putInt(String key, int value)
+-+    {
+-+        putInt(context, key, value);
+-+    }
+-+    //--------------------------------------------------------------------------------------------//
+-+    //
+-+    //--------------------------------------------------------------------------------------------//
+-+    public static void putInt(Context context, String key, int value)
+-+    {
+-+        SharedPreferences.Editor prefsEditor = PreferenceManager
+-+                .getDefaultSharedPreferences(context)
+-+                .edit();
+-+
+-+        prefsEditor.putInt(key, value);
+-+        prefsEditor.commit();
+-+    }
+-+    //--------------------------------------------------------------------------------------------//
+-+    //
+-+    //--------------------------------------------------------------------------------------------//
+-+    public static long getLong(String key)
+-+    {
+-+        return getLong(context, key);
+-+    }
+-+    //--------------------------------------------------------------------------------------------//
+-+    //
+-+    //--------------------------------------------------------------------------------------------//
+-+    public static long getLong(Context context, String key)
+-+    {
+-+        return PreferenceManager.getDefaultSharedPreferences(context)
+-+                .getLong(key, 0);
+-+    }
+-+    //--------------------------------------------------------------------------------------------//
+-+    //
+-+    //--------------------------------------------------------------------------------------------//
+-+    public static void putLong(String key, long value)
+-+    {
+-+        putLong(context, key, value);
+-+    }
+-+    //--------------------------------------------------------------------------------------------//
+-+    //
+-+    //--------------------------------------------------------------------------------------------//
+-+    public static void putLong(Context context, String key, long value)
+-+    {
+-+        SharedPreferences.Editor prefsEditor = PreferenceManager
+-+                .getDefaultSharedPreferences(context)
+-+                .edit();
+-+
+-+        prefsEditor.putLong(key, value);
+-+        prefsEditor.commit();
+-+    }
+-+    //--------------------------------------------------------------------------------------------//
+-+    //
+-+    //--------------------------------------------------------------------------------------------//
+-+    public static String getString(String key)
+-+    {
+-+        return getString(context, key);
+-+    }
+-+    //--------------------------------------------------------------------------------------------//
+-+    //
+-+    //--------------------------------------------------------------------------------------------//
+-+    public static String getString(Context context, String key)
+-+    {
+-+        return PreferenceManager.getDefaultSharedPreferences(context).getString(key, null);
+-+    }
+-+    //--------------------------------------------------------------------------------------------//
+-+    //
+-+    //--------------------------------------------------------------------------------------------//
+-+    public static void putString(String key, String value)
+-+    {
+-+        putString(context, key, value);
+-+    }
+-+    //--------------------------------------------------------------------------------------------//
+-+    //
+-+    //--------------------------------------------------------------------------------------------//
+-+    public static void putString(Context context, String key, String value)
+-+    {
+-+        SharedPreferences.Editor prefsEditor = PreferenceManager
+-+                .getDefaultSharedPreferences(context)
+-+                .edit();
+-+
+-+        prefsEditor.putString(key, value);
+-+        prefsEditor.commit();
+-+    }
+-+    //--------------------------------------------------------------------------------------------//
+-+    //
+-+    //--------------------------------------------------------------------------------------------//
+-+    public static void putArray(Context context, String key, ArrayList<String> values)
+-+    {
+-+        ArrayList<String> tmpArr = getArray(context, key);
+-+
+-+        for( int index = 0; index < values.size(); index++)
+-+            tmpArr.add(values.get(index));
+-+
+-+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+-+        SharedPreferences.Editor editor = prefs.edit();
+-+        JSONArray a = new JSONArray();
+-+        for (int i = 0; i < values.size(); i++)
+-+            a.put(values.get(i));
+-+
+-+        if (!values.isEmpty())
+-+            editor.putString(key, a.toString());
+-+        else
+-+            editor.putString(key, null);
+-+
+-+        editor.apply();
+-+    }
+-+    //--------------------------------------------------------------------------------------------//
+-+    //
+-+    //--------------------------------------------------------------------------------------------//
+-+    public static ArrayList<String> getArray(Context context, String key)
+-+    {
+-+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+-+        String json = prefs.getString(key, null);
+-+        ArrayList<String> strArr = new ArrayList<String>();
+-+
+-+
+-+        if (json != null)
+-+        {
+-+            try
+-+            {
+-+                JSONArray a = new JSONArray(json);
+-+                for (int i = 0; i < a.length(); i++)
+-+                {
+-+                    String url = a.optString(i);
+-+                    strArr.add(url);
+-+                }
+-+            }
+-+            catch (JSONException e)
+-+            {
+-+                e.printStackTrace();
+-+            }
+-+        }
+-+
+-+        return strArr;
+-+    }
+-+
+-+    public static void putDaysArray(Context context, String key, ArrayList<String> values)
+-+    {
+-+        ArrayList<String> tmpArr = getArray(context, key);
+-+
+-+        for( int index = 0; index < values.size(); index++)
+-+            tmpArr.add(values.get(index));
+-+
+-+
+-+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+-+        SharedPreferences.Editor editor = prefs.edit();
+-+        JSONArray a = new JSONArray();
+-+
+-+        for( int index = 0; index < 7; index++ )
+-+        {
+-+            if( values.get(index) == "" || values.get(index) == null || values.get(index).length() == 0 )
+-+                a.put("");
+-+            else
+-+                a.put(values.get(index));
+-+        }
+-+
+-+        for (int i = 0; i < values.size(); i++)
+-+            a.put(values.get(i));
+-+
+-+        if (!values.isEmpty())
+-+            editor.putString(key, a.toString());
+-+        else
+-+            editor.putString(key, null);
+-+
+-+        editor.apply();
+-+    }
+-+}
+-\ No newline at end of file
+-Index: app/src/main/res/layout/activity_rotation_request.xml
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+---- app/src/main/res/layout/activity_rotation_request.xml	(date 1619521576000)
+-+++ app/src/main/res/layout/activity_rotation_request.xml	(date 1619521576000)
+-@@ -0,0 +1,36 @@
+-+<?xml version="1.0" encoding="utf-8"?>
+-+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+-+    xmlns:tools="http://schemas.android.com/tools"
+-+    android:layout_width="match_parent"
+-+    android:layout_height="match_parent"
+-+    xmlns:app="http://schemas.android.com/apk/res-auto">
+-+
+-+    <!-- surfaceview를 상속받아서 만든 임의의 뷰라서 앞에 패키지 이름 필수 -->
+-+    <com.example.vision01.PreviewCamera
+-+        android:id="@+id/surfaceView_cam"
+-+        android:layout_width="match_parent"
+-+        android:layout_height="match_parent"
+-+        android:layout_above="@+id/button_find"
+-+        android:layout_alignParentLeft="true"
+-+        android:layout_alignParentTop="true" />
+-+
+-+    <Button
+-+        android:id="@+id/button_find"
+-+        android:layout_width="match_parent"
+-+        android:layout_height="50dp"
+-+        android:textSize="20dp"
+-+        android:layout_alignParentBottom="true"
+-+        android:layout_alignParentLeft="true"
+-+        android:layout_alignParentRight="true"
+-+        android:layout_alignParentStart="true"
+-+        android:text="물건 찾기" />
+-+
+-+    <ImageView
+-+        android:id="@+id/right_arrow"
+-+        android:layout_width="80dp"
+-+        android:layout_height="120dp"
+-+        android:layout_centerInParent="true"
+-+        android:src="@drawable/right_arrow"
+-+        android:visibility="invisible" />
+-+
+-+</RelativeLayout>
+-\ No newline at end of file
+-Index: app/src/main/res/values/strings.xml
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+-<+><resources>\r\n    <string name=\"app_name\">vision0.1</string>\r\n    <string name=\"title_activity_device_list_form\">DeviceListForm</string>\r\n    <!-- Strings used for fragments for navigation -->\r\n    <string name=\"first_fragment_label\">First Fragment</string>\r\n    <string name=\"second_fragment_label\">Second Fragment</string>\r\n    <string name=\"next\">Next</string>\r\n    <string name=\"previous\">Previous</string>\r\n\r\n    <string name=\"hello_first_fragment\">Hello first fragment</string>\r\n    <string name=\"hello_second_fragment\">Hello second fragment. Arg: %1$s</string>\r\n</resources>
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+---- app/src/main/res/values/strings.xml	(revision 687a0b118a9dcf682548ae461fc5895e3841ff76)
+-+++ app/src/main/res/values/strings.xml	(date 1617771360000)
+-@@ -1,5 +1,6 @@
+- <resources>
+-     <string name="app_name">vision0.1</string>
+-+    <string name="title_activity_a_r_camera">ARCamera</string>
+-     <string name="title_activity_device_list_form">DeviceListForm</string>
+-     <!-- Strings used for fragments for navigation -->
+-     <string name="first_fragment_label">First Fragment</string>
+-Index: app/src/main/java/com/example/vision01/MainActivity.java
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+-<+>package com.example.vision01;\r\n\r\nimport androidx.appcompat.app.AppCompatActivity;\r\n\r\nimport android.os.Bundle;\r\n\r\npublic class MainActivity extends AppCompatActivity {\r\n\r\n    @Override\r\n    protected void onCreate(Bundle savedInstanceState) {\r\n        super.onCreate(savedInstanceState);\r\n        setContentView(R.layout.activity_main);\r\n    }\r\n}
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+---- app/src/main/java/com/example/vision01/MainActivity.java	(revision 687a0b118a9dcf682548ae461fc5895e3841ff76)
+-+++ app/src/main/java/com/example/vision01/MainActivity.java	(date 1618338686000)
+-@@ -1,14 +1,41 @@
+- package com.example.vision01;
+- 
+--import androidx.appcompat.app.AppCompatActivity;
+--
+-+import android.Manifest;
+-+import android.bluetooth.BluetoothAdapter;
+-+import android.content.Intent;
+- import android.os.Bundle;
+- 
+-+import androidx.appcompat.app.AppCompatActivity;
+-+import androidx.core.app.ActivityCompat;
+-+
+-+import com.example.vision01.Utils.Preferences;
+-+
+- public class MainActivity extends AppCompatActivity {
+- 
+-+    BluetoothAdapter btAdapter;
+-+    private final static int REQUEST_ENABLE_BT = 1;
+-     @Override
+-     protected void onCreate(Bundle savedInstanceState) {
+-         super.onCreate(savedInstanceState);
+-+        checkLocationPermissions();
+-+        enableBluetooth();
+-+
+-         setContentView(R.layout.activity_main);
+-     }
+-+    private void checkLocationPermissions(){
+-+        // Get permission
+-+        String[] permission_list = {
+-+                Manifest.permission.ACCESS_FINE_LOCATION,
+-+                Manifest.permission.ACCESS_COARSE_LOCATION
+-+        };
+-+        ActivityCompat.requestPermissions(MainActivity.this, permission_list,  1);
+-+    }
+-+    private void enableBluetooth(){
+-+        // Enable bluetooth
+-+        btAdapter = BluetoothAdapter.getDefaultAdapter();
+-+        if (!btAdapter.isEnabled()) {
+-+            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+-+            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+-+        }
+-+    }
+- }
+-\ No newline at end of file
+diff --git .idea/shelf/______at_2021-04-27__9_23_____.xml .idea/shelf/______at_2021-04-27__9_23_____.xml

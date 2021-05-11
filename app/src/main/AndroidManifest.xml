@@ -35,7 +35,7 @@
             android:label="@string/title_activity_a_r_camera"
             android:theme="@style/Theme.Vision01.NoActionBar" />
         <activity android:name=".DeviceListForm" />
-        <activity android:name=".LoginForm">
+        <activity android:name=".LoginForm" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -46,6 +46,14 @@
         <activity android:name=".MainActivity" />
         <activity android:name=".AddDeviceForm" />
         <activity android:name=".FindForm" />
+        <activity android:name=".OpenRader"/>
+        <activity android:name=".ProgressbarForm">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
 
         <meta-data
             android:name="com.google.ar.core"
