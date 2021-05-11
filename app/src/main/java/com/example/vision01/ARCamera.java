@@ -224,16 +224,16 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
             Texture virtualObjectAlbedoTexture =
                     Texture.createFromAsset(
                             render,
-                            "models/map_pointer_albedo.png",
+                            "models/pawn_albedo2.png",
                             Texture.WrapMode.CLAMP_TO_EDGE,
                             Texture.ColorFormat.SRGB);
             Texture virtualObjectPbrTexture =
                     Texture.createFromAsset(
                             render,
-                            "models/map_pointer_roughness_metallic_ao.png",
+                            "models/pawn_roughness_metallic_ao2.png",
                             Texture.WrapMode.CLAMP_TO_EDGE,
                             Texture.ColorFormat.LINEAR);
-            virtualObjectMesh = Mesh.createFromAsset(render, "models/map_pointer.obj");
+            virtualObjectMesh = Mesh.createFromAsset(render, "models/pawn.obj");
             virtualObjectShader =
                     Shader.createFromAssets(
                             render,
