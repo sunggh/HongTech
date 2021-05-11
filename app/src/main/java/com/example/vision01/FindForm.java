@@ -62,7 +62,6 @@ public class FindForm extends AppCompatActivity {
         SEARCHING,
         SEARCHED,
         AR,
-        RADER,
         PROGRESS,
         PROGRESSING;
     }
@@ -274,84 +273,6 @@ public class FindForm extends AppCompatActivity {
                         startActivity(intent);
                         Mode = CUR_MODE.PROGRESS;
                     }
-                    break;
-                case RADER:
-                    if(OpenRader.mRadarView == null || OpenRader.textView == null)  break;
-                    if(control == 15) {
-                        if(filtered_rssied > filtered_rssi) {
-                            increase++;
-
-                        } else {
-                            filtered_rssied=filtered_rssi;
-                            increase = 0;
-
-                        }
-                        if(increase == 2) {
-                            switch (first_direction) {
-                                case 0:
-                                    if (second_direction == 1) {
-                                        OpenRader.mRadarView.target_alpha = 0;
-                                        Toast.makeText(getApplicationContext(), "오른쪽", Toast.LENGTH_SHORT).show();
-
-                                    } else if (second_direction == 3) {
-                                        OpenRader.mRadarView.target_alpha = 180;
-                                        Toast.makeText(getApplicationContext(), "왼쪽", Toast.LENGTH_SHORT).show();
-                                    } else  {
-                                        Toast.makeText(getApplicationContext(), "오류", Toast.LENGTH_SHORT).show();
-
-                                    }
-                                    break;
-                                case 1:
-                                    if (second_direction == 2) {
-                                        OpenRader.mRadarView.target_alpha = 0;
-                                        Toast.makeText(getApplicationContext(), "오른쪽", Toast.LENGTH_SHORT).show();
-                                    } else if (second_direction == 0) {
-                                        OpenRader.mRadarView.target_alpha = 180;
-                                        Toast.makeText(getApplicationContext(), "왼쪽", Toast.LENGTH_SHORT).show();
-                                    } else  {
-                                        Toast.makeText(getApplicationContext(), "오류", Toast.LENGTH_SHORT).show();
-                                    }
-                                    break;
-                                case 2:
-                                    if (second_direction == 3) {
-                                        OpenRader.mRadarView.target_alpha = 0;
-                                        Toast.makeText(getApplicationContext(), "오른쪽", Toast.LENGTH_SHORT).show();
-                                    } else if (second_direction == 1) {
-                                        OpenRader.mRadarView.target_alpha = 180;
-                                        Toast.makeText(getApplicationContext(), "왼쪽", Toast.LENGTH_SHORT).show();
-                                    } else  {
-                                        Toast.makeText(getApplicationContext(), "오류", Toast.LENGTH_SHORT).show();
-                                    }
-                                    break;
-                                case 3:
-                                    if (second_direction == 0) {
-                                        OpenRader.mRadarView.target_alpha = 0;
-                                        Toast.makeText(getApplicationContext(), "오른쪽", Toast.LENGTH_SHORT).show();
-                                    } else if (second_direction == 2) {
-                                        OpenRader.mRadarView.target_alpha = 180;
-                                        Toast.makeText(getApplicationContext(), "왼쪽", Toast.LENGTH_SHORT).show();
-                                    } else  {
-                                        Toast.makeText(getApplicationContext(), "오류", Toast.LENGTH_SHORT).show();
-                                    }
-                                    break;
-                            }
-                        } else {
-                            if(OpenRader.mRadarView == null)  break;
-                            OpenRader.mRadarView.target_alpha = 90;
-                        }
-                        if(OpenRader.mRadarView == null && OpenRader.textView == null)  break;
-
-                        OpenRader.mRadarView.startAnimation();
-                        OpenRader.textView.setText(String.valueOf((int)(filtered_rssi)));
-                        if(filtered_rssi > -56) {
-                            Mode = CUR_MODE.PROGRESS;
-
-                            Intent intent = new Intent(getApplicationContext(), ProgressbarForm.class);
-                            startActivity(intent);
-                        }
-                        control = 0 ;
-                    } else
-                        control++;
                     break;
                 case PROGRESS:
                     if(ProgressbarForm.circleProgressBar == null) break;

@@ -339,10 +339,6 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
         if (session == null) {
             return;
         }
-        if(FindForm.Mode == FindForm.CUR_MODE.RADER){
-            finish();
-            return;
-        }
         // Texture names should only be set once on a GL thread unless they change. This is done during
         // onDrawFrame rather than onSurfaceCreated since the session is not guaranteed to have been
         // initialized during the execution of onSurfaceCreated.
