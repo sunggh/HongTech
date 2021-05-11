@@ -42,7 +42,6 @@ public class DeviceListForm extends AppCompatActivity {
     ArrayList<Device> devices;
     ListView lvDeviceList;
     TextView textState;
-    Button btnMakeNotification;
 
     DeviceAdpt deviceAdpt;
     Device selectedDevice; //선택된 제품 (삭제하거나 rssi 찾을 때 사용)
@@ -72,7 +71,6 @@ public class DeviceListForm extends AppCompatActivity {
     public void initControl(){
         lvDeviceList = (ListView)findViewById(R.id.listView);
         textState = (TextView)findViewById(R.id.text_state);
-        btnMakeNotification = (Button)findViewById(R.id.btn_make_notification);
         deviceAdpt = new DeviceAdpt(this, devices);
 
         registerReceiver(receiver, new IntentFilter(BluetoothDevice.ACTION_FOUND));
@@ -86,12 +84,6 @@ public class DeviceListForm extends AppCompatActivity {
             startService();
         }
 
-        btnMakeNotification.setOnClickListener(new View.OnClickListener(){
-            @Override
-            public void onClick(View v) {
-                startService();
-            }
-        });
     }
     @Override
     protected void onResume() {

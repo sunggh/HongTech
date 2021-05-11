@@ -29,19 +29,12 @@
         <ListView
             android:id="@+id/listView"
             android:layout_width="413dp"
-            android:layout_height="505dp" />
+            android:layout_height="681dp" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:orientation="vertical">
-
-            <Button
-                android:id="@+id/btn_make_notification"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="알림 보내기" />
-        </LinearLayout>
+            android:orientation="vertical"/>
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
