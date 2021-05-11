@@ -133,7 +133,7 @@ public class FindForm extends AppCompatActivity {
     }
 
     private void scan() {
-        ScanFilter filter = new ScanFilter.Builder().setDeviceAddress("F0:08:D1:D4:F8:52").build(); //F8:95:EA:5A:DD:3C, F0:08:D1:D4:F8:52
+        ScanFilter filter = new ScanFilter.Builder().setDeviceAddress("F8:95:EA:5A:DD:3C").build(); //F8:95:EA:5A:DD:3C, F0:08:D1:D4:F8:52
         //F0:08:D1:D4:F8:52
         ArrayList<ScanFilter> filters = new ArrayList<ScanFilter>();
         filters.add(filter);
@@ -152,7 +152,7 @@ public class FindForm extends AppCompatActivity {
         double[] rssi_direction = new double[10];
         KalmanFilter kalmanFilter= null;
         double progress_rssi = -65;
-        double AR_RSSI;
+        double AR_RSSI,PRO_RSSI=0;
 
         @RequiresApi(api = Build.VERSION_CODES.O)
         @Override
@@ -244,10 +244,11 @@ public class FindForm extends AppCompatActivity {
                         AR_Mode = AR_MODE.SEARCHING;
                         break;
                     } else if(AR_Mode == AR_MODE.SEARCHING) {
+                        Toast.makeText(getApplicationContext(), "RSSI :"+filtered_rssi, Toast.LENGTH_SHORT).show();
                         if(AR_RSSI < filtered_rssi) {
                             AR_RSSI = filtered_rssi;
                         } else {
-                            if(AR_RSSI-4 < filtered_rssi){
+                            if(AR_RSSI-3 < filtered_rssi){
                                 increase++;
                             } else {
                                 if(increase > 10) {
@@ -276,8 +277,24 @@ public class FindForm extends AppCompatActivity {
                     break;
                 case PROGRESS:
                     if(ProgressbarForm.circleProgressBar == null) break;
+                    if(PRO_RSSI == 0 ) {
+                        PRO_RSSI = filtered_rssi;
+                        break;
+                    }
+                    if(PRO_RSSI-1 > filtered_rssi) {
+                        if(increase == 3) {
+                            increase = 0;
+                            PRO_RSSI = filtered_rssi;
+                        } else {
+                            increase++;
+                        }
+                        break;
+                    } else {
+                        PRO_RSSI = filtered_rssi;
+                        increase = 0;
+                    }
 
-                    if(control == 10) {
+                    if(control == 0) {
 
 //                        int tmp;
 //
@@ -387,7 +404,7 @@ public class FindForm extends AppCompatActivity {
                     }
                     //control == 3 이 아니면
                     else {
-                        control++;
+                        //control++;
                     }
                     break;
             }
