@@ -22,6 +22,7 @@ import com.example.vision01.DeviceListForm;
 import com.example.vision01.FindForm;
 import com.example.vision01.R;
 import com.example.vision01.Sqlite.SqliteDb;
+import com.example.vision01.TheftModeService;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -91,6 +92,21 @@ public class DeviceAdpt extends BaseAdapter {
                 sqliteDb.dbDevice.updateIsTheftMode(selectedDevice);
 
 
+                DeviceManager.devices = sqliteDb.dbDevice.getTheftDevices();
+                TheftModeService.TMActivationDevices = DeviceManager.devices;
+                /*
+                //실행되고 있는 서비스가 있는지 확인 후
+                //서비스 스타트
+                if(!(TheftModeService.TMActivationDevices.isEmpty())){
+                    if(((DeviceListForm)DeviceListForm.mContext).isServiceRunningCheck(TheftModeService.class))
+                        ((TheftModeService)TheftModeService.mContext).onDestroy();
+                    ((DeviceListForm)DeviceListForm.mContext).startService();
+                }
+                else{
+                    if(((DeviceListForm)DeviceListForm.mContext).isServiceRunningCheck(TheftModeService.class))
+                        ((TheftModeService)TheftModeService.mContext).onDestroy();
+                }
+                */
             }
         });
 

@@ -5,12 +5,14 @@ public class Device {
     String name;
     String serialNum;
     boolean isTheftMode;
+    boolean hasTheftOccurs;
     int position;
 
     public Device(String name, String serialNum, boolean isTheftMode){
         this.name = name;
         this.serialNum = serialNum;
         this.isTheftMode = isTheftMode;
+        hasTheftOccurs = false;
     }
 
     public Device(String id, String name, String serialNum, boolean isTheftMode){
@@ -18,6 +20,7 @@ public class Device {
         this.name = name;
         this.serialNum = serialNum;
         this.isTheftMode = isTheftMode;
+        hasTheftOccurs = false;
     }
     public Device(String id, String name, String serialNum, boolean isTheftMode, int position){
         this.id = id;
@@ -25,8 +28,16 @@ public class Device {
         this.serialNum = serialNum;
         this.isTheftMode = isTheftMode;
         this.position = position;
+        hasTheftOccurs = false;
     }
 
+    public boolean hasTheftOccurs() {
+        return hasTheftOccurs;
+    }
+
+    public void setTheftOccurs(boolean hasTheftOccurs) {
+        this.hasTheftOccurs = hasTheftOccurs;
+    }
     public String getID() {
         return id;
     }
