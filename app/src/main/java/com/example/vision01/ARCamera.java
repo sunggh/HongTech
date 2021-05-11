@@ -393,8 +393,11 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
                 // spam the logcat with this.
             }
         }
+        if(FindForm.AR_Mode == FindForm.AR_MODE.SEARCH_FINISH) {
+            handleTap(frame, camera);
+            FindForm.AR_Mode = FindForm.AR_MODE.FINISH;
+        }
 
-        handleTap(frame, camera);
 
        /* if(blueA) { //round
             if(Math.round(bluecam.tx()*100) == Math.round(camera.getPose().tx()*100)) {

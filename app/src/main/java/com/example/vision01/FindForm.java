@@ -51,6 +51,7 @@ public class FindForm extends AppCompatActivity {
     private KalmanFilter[] Kalmans = new KalmanFilter[4];
     private double secondRssi=0,firstRssi;
     public static CUR_MODE Mode = CUR_MODE.NONE;
+    public static AR_MODE AR_Mode = AR_MODE.NONE;
     private BluetoothAdapter bluetoothAdapter;
     private BluetoothLeScanner leScanner;
 
@@ -65,6 +66,14 @@ public class FindForm extends AppCompatActivity {
         PROGRESS,
         PROGRESSING;
     }
+    public enum AR_MODE {
+        NONE,
+        SEARCHING,
+        SEARCHED,
+        SEARCH_FINISH,
+        FINISH;
+    }
+
 
 
     SurfaceView pc;
@@ -144,12 +153,13 @@ public class FindForm extends AppCompatActivity {
         double[] rssi_direction = new double[10];
         KalmanFilter kalmanFilter= null;
         double progress_rssi = -65;
+        double AR_RSSI;
 
         @RequiresApi(api = Build.VERSION_CODES.O)
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
             super.onScanResult(callbackType, result);
-            if(Mode == CUR_MODE.SEARCH || Mode == CUR_MODE.SEARCHED|| Mode == CUR_MODE.PROGRESSING)  return;
+            if(Mode == CUR_MODE.SEARCH || Mode == CUR_MODE.SEARCHED|| Mode == CUR_MODE.PROGRESSING || AR_Mode == AR_MODE.SEARCH_FINISH)  return;
 
             /* RSSI 변수 선언 */
             int rssi = result.getRssi();
@@ -163,8 +173,8 @@ public class FindForm extends AppCompatActivity {
             }
             switch(Mode) {
                 case NONE:
-                    if(filtered_rssi<=-72) {
-                        if(filtered_rssi+5 > -75) {
+                    if(filtered_rssi<=-73) {
+                        if(filtered_rssi > -75) {
                             Toast.makeText(getApplicationContext(), " 근처에 있습니다. 조금만 앞으로 이동해주세요." + String.valueOf((int)(filtered_rssi)), Toast.LENGTH_SHORT).show();
                             break;
                         } else {
@@ -230,15 +240,40 @@ public class FindForm extends AppCompatActivity {
                     }
                     break;
                 case AR:
-
-
+                    if(AR_Mode == AR_MODE.NONE) {
+                        AR_RSSI = filtered_rssi; // AR중에 젤 최소값
+                        AR_Mode = AR_MODE.SEARCHING;
+                        break;
+                    } else if(AR_Mode == AR_MODE.SEARCHING) {
+                        if(AR_RSSI < filtered_rssi) {
+                            AR_RSSI = filtered_rssi;
+                        } else {
+                            if(AR_RSSI-4 < filtered_rssi){
+                                increase++;
+                            } else {
+                                if(increase > 10) {
+                                    Toast.makeText(getApplicationContext(), "이전 방향으로 돌려주세요.", Toast.LENGTH_SHORT).show();
+                                    AR_Mode = AR_MODE.SEARCHED;
+                                    increase = 0;
+                                    break;
+                                }
+                                increase = 0;
+                            }
+                        }
+                        break;
+                    } else if(AR_Mode == AR_MODE.SEARCHED) {
+                        if(AR_RSSI-2 < filtered_rssi) {
+                            AR_Mode = AR_MODE.SEARCH_FINISH;
+                            break;
+                        } else {
+                            Toast.makeText(getApplicationContext(), "AR_RSSI : "+AR_RSSI + "| RSSI :"+filtered_rssi, Toast.LENGTH_SHORT).show();
+                        }
+                    }
                     if(filtered_rssi > -60) {
                         Intent intent = new Intent(getApplicationContext(), ProgressbarForm.class);
                         startActivity(intent);
                         Mode = CUR_MODE.PROGRESS;
                     }
-
-
                     break;
                 case RADER:
                     if(OpenRader.mRadarView == null || OpenRader.textView == null)  break;
