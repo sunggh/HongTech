@@ -134,7 +134,7 @@ public class FindForm extends AppCompatActivity {
     }
 
     private void scan() {
-        ScanFilter filter = new ScanFilter.Builder().setDeviceAddress("F8:95:EA:5A:DD:3C").build();//F8:95:EA:5A:DD:3C, F0:08:D1:D4:F8:52
+        ScanFilter filter = new ScanFilter.Builder().setDeviceAddress("F0:08:D1:D4:F8:52").build(); //F8:95:EA:5A:DD:3C, F0:08:D1:D4:F8:52
         //F0:08:D1:D4:F8:52
         ArrayList<ScanFilter> filters = new ArrayList<ScanFilter>();
         filters.add(filter);
@@ -356,14 +356,53 @@ public class FindForm extends AppCompatActivity {
                 case PROGRESS:
                     if(ProgressbarForm.circleProgressBar == null) break;
 
-                    if(control == 3) {
-                        if(filtered_rssi >= -65) {
-                            int tmp;
+                    if(control == 10) {
 
-                            tmp = -65 - (int)filtered_rssi;
+//                        int tmp;
+//
+//                        tmp = -65 - (int)filtered_rssi;
 
-                            ProgressbarForm.test.progress(tmp);
+                        Toast.makeText(getApplicationContext(), "rssi::" + filtered_rssi,Toast.LENGTH_SHORT).show();
 
+                        if(filtered_rssi >= -70) {
+
+
+                            if(filtered_rssi <= -66) {
+                                ProgressbarForm.test.progress(1);
+                            }
+
+                            else if(filtered_rssi <= -64) {
+                                ProgressbarForm.test.progress(2);
+                            }
+
+                            else if(filtered_rssi <= -61) {
+                                ProgressbarForm.test.progress(3);
+                            }
+
+                            else if(filtered_rssi <= -58){
+                                ProgressbarForm.test.progress(4);
+                            }
+                            else if(filtered_rssi <= -55) {
+                                ProgressbarForm.test.progress(5);
+                            }
+
+                            else if(filtered_rssi <= -52) {
+                                ProgressbarForm.test.progress(6);
+                            }
+
+                            else if(filtered_rssi <= -49) {
+                                ProgressbarForm.test.progress(7);
+                            }
+                            else if(filtered_rssi <= -46) {
+                                ProgressbarForm.test.progress(8);
+                            }
+                            else if(filtered_rssi <= -43) {
+                                ProgressbarForm.test.progress(9);
+                            }
+                            //-40보다 가까워지면
+                            else {
+                                ProgressbarForm.test.progress(10);
+                            }
 
 
 //                            System.out.println("tmp"+tmp);
@@ -417,17 +456,18 @@ public class FindForm extends AppCompatActivity {
 //                            }
 
                             progress_rssi = filtered_rssi;
-                        } else {
+                        }
+                        //filtered_rssi가 -65보다 더 작은 범위로 가면 예외처리
+                        else {
                             Toast.makeText(getApplicationContext(), " 범위 밖입니다 rssi::" + filtered_rssi,Toast.LENGTH_SHORT).show();
                         }
+
                         control = 0;
                     }
+                    //control == 3 이 아니면
                     else {
-
                         control++;
                     }
-
-                    //구현해야함
                     break;
             }
         }
