@@ -106,17 +106,19 @@ public class FindForm extends AppCompatActivity {
                         break;
                     case SEARCH_READY:
                         Toast.makeText(getApplicationContext(),"찾기모드가 실행 되었습니다.", Toast.LENGTH_SHORT).show();
-                        Mode = CUR_MODE.SEARCHING;
+                        Intent intent = new Intent(getApplicationContext(), ARCamera.class);
+                        startActivity(intent);
+                        Mode = CUR_MODE.AR;
                         break;
                     case SEARCH:
                         Toast.makeText(getApplicationContext(),"찾기 재 시작", Toast.LENGTH_SHORT).show();
                         Mode = CUR_MODE.SEARCHING;
                         break;
-                    case SEARCHED:
-                        Intent intent = new Intent(getApplicationContext(), ARCamera.class);
-                        startActivity(intent);
-                        Mode = CUR_MODE.AR;
-                        break;
+//                    case SEARCHED:
+//                        Intent intent = new Intent(getApplicationContext(), ARCamera.class);
+//                        startActivity(intent);
+//                        Mode = CUR_MODE.AR;
+//                        break;
                 }
             }
         });
@@ -177,6 +179,9 @@ public class FindForm extends AppCompatActivity {
                             if(filtered_rssi>-65) {
                                 Toast.makeText(getApplicationContext(), " 이 근방에 있나봐요 바로 찾기모드로 진행됩니다.", Toast.LENGTH_SHORT).show();
                                 Mode = CUR_MODE.PROGRESS;
+                                Intent intent = new Intent(getApplicationContext(), ProgressbarForm.class);
+                                startActivity(intent);
+                                Mode = CUR_MODE.PROGRESS;
                                 break;
                             }
                             Mode = CUR_MODE.SEARCH_READY;
@@ -225,11 +230,15 @@ public class FindForm extends AppCompatActivity {
                     }
                     break;
                 case AR:
-                    if(filtered_rssi > -70) {
-                        Intent intent = new Intent(getApplicationContext(), OpenRader.class);
+
+
+                    if(filtered_rssi > -60) {
+                        Intent intent = new Intent(getApplicationContext(), ProgressbarForm.class);
                         startActivity(intent);
-                        Mode = CUR_MODE.RADER;
+                        Mode = CUR_MODE.PROGRESS;
                     }
+
+
                     break;
                 case RADER:
                     if(OpenRader.mRadarView == null || OpenRader.textView == null)  break;
