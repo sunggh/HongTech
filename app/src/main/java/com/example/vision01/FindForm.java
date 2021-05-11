@@ -269,7 +269,7 @@ public class FindForm extends AppCompatActivity {
                             Toast.makeText(getApplicationContext(), "AR_RSSI : "+AR_RSSI + "| RSSI :"+filtered_rssi, Toast.LENGTH_SHORT).show();
                         }
                     }
-                    if(filtered_rssi > -60) {
+                    if(filtered_rssi > -65) {
                         Intent intent = new Intent(getApplicationContext(), ProgressbarForm.class);
                         startActivity(intent);
                         Mode = CUR_MODE.PROGRESS;
@@ -356,7 +356,7 @@ public class FindForm extends AppCompatActivity {
                 case PROGRESS:
                     if(ProgressbarForm.circleProgressBar == null) break;
 
-                    if(control == 5) {
+                    if(control == 3) {
                         if(filtered_rssi >= -65) {
                             int tmp;
 
@@ -364,7 +364,7 @@ public class FindForm extends AppCompatActivity {
 
                             ProgressbarForm.test.progress(tmp);
 
-                            Toast.makeText(getApplicationContext(), "rssi::" + filtered_rssi,Toast.LENGTH_SHORT).show();
+
 
 //                            System.out.println("tmp"+tmp);
 //                            if(tmp > 0) {
@@ -417,6 +417,8 @@ public class FindForm extends AppCompatActivity {
 //                            }
 
                             progress_rssi = filtered_rssi;
+                        } else {
+                            Toast.makeText(getApplicationContext(), " 범위 밖입니다 rssi::" + filtered_rssi,Toast.LENGTH_SHORT).show();
                         }
                         control = 0;
                     }
