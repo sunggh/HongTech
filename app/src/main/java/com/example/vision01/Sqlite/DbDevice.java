@@ -31,6 +31,7 @@ public class DbDevice {
             row.put("name", device.getName());
             row.put("serialNum", device.getSerialNum());
             row.put("isTheftMode", device.isTheftMode());
+            row.put("hasTheftOccurs", 0);
 
             database.insertOrThrow("tbl_device", null, row);
         }catch(SQLiteException e)
@@ -77,7 +78,21 @@ public class DbDevice {
         cursor.close();
         return isTheftMode;
     }
+    public boolean getHasTheftOccurs(Device device){
+        if(database == null)    return false;
 
+        String query = "SELECT * FROM tbl_device WHERE id =" + device.getID();
+
+        boolean hasTheftOccurs = false;
+
+        cursor = database.rawQuery(query, null);
+        cursor.moveToFirst();
+
+        hasTheftOccurs = cursor.getInt(cursor.getColumnIndexOrThrow("hasTheftOccurs")) == 1;
+
+        cursor.close();
+        return hasTheftOccurs;
+    }
     public boolean updateName(Device device){
         if(database == null)    return false;
 
@@ -111,6 +126,22 @@ public class DbDevice {
         }
         return false;
     }
+    public boolean updateHasTheftOccurs(Device device){
+        if(database == null)    return false;
+
+        try{
+            ContentValues values = new ContentValues();
+
+            values.put("hasTheftOccurs", device.hasTheftOccurs());
+            Log.e("hasTheftOccurs", device.hasTheftOccurs() + "," + device.getID());
+            database.update("tbl_device",values,"id = ?" , new String[]{device.getID()});
+
+            return true;
+        }catch(SQLiteException e) {
+            Log.e("Db", e.toString());
+        }
+        return false;
+    }
     public ArrayList<Device> getDevices(){
         ArrayList<Device> devices = new ArrayList<Device>();
 
@@ -135,6 +166,34 @@ public class DbDevice {
             cursor.moveToNext();
         }
 
+        cursor.close();
+        return devices;
+    }
+    public ArrayList<Device> getTheftDevices(){
+        ArrayList<Device> devices = new ArrayList<Device>();
+
+        if(database == null){
+            Log.e("Db", "DB NULL!!!!!!!");
+            return null;
+        }
+        String query = "SELECT * FROM tbl_device";
+
+        cursor = database.rawQuery(query, null);
+        cursor.moveToFirst();
+
+        int count = cursor.getCount() - 1;
+        for(int i = 0; i < count + 1; i++){
+            if(cursor.getInt(cursor.getColumnIndexOrThrow("isTheftMode"))==1){
+                Device device = new Device(
+                        cursor.getString(cursor.getColumnIndexOrThrow("id")),
+                        cursor.getString(cursor.getColumnIndexOrThrow("name")),
+                        cursor.getString(cursor.getColumnIndexOrThrow("serialNum")),
+                        cursor.getInt(cursor.getColumnIndexOrThrow("isTheftMode"))==1
+                );
+                devices.add(device);
+            }
+            cursor.moveToNext();
+        }
         cursor.close();
         return devices;
     }
