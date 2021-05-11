@@ -174,6 +174,11 @@ public class FindForm extends AppCompatActivity {
                         }
                     } else {
                         if(Distance_Count == 0) {
+                            if(filtered_rssi>-65) {
+                                Toast.makeText(getApplicationContext(), " 이 근방에 있나봐요 바로 찾기모드로 진행됩니다.", Toast.LENGTH_SHORT).show();
+                                Mode = CUR_MODE.PROGRESS;
+                                break;
+                            }
                             Mode = CUR_MODE.SEARCH_READY;
                             Toast.makeText(getApplicationContext(), " 찾기모드가 준비 되었습니다. 버튼을 눌러 시작해주세요", Toast.LENGTH_SHORT).show();
                             kalmanFilter = null;
