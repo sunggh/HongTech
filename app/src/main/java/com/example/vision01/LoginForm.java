@@ -126,7 +126,7 @@ public class LoginForm extends AppCompatActivity {
         joinButton.setOnClickListener(new View.OnClickListener(){
             @Override
             public void onClick(View v) {
-                Intent intent = new Intent(getApplicationContext(), ProgressbarForm.class);
+                Intent intent = new Intent(getApplicationContext(), ARCamera.class);
                 startActivity(intent);
             }
         });

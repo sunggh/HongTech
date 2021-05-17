@@ -107,9 +107,6 @@ public class FindForm extends AppCompatActivity {
             public void onClick(View v) {
                 switch (Mode) {
                     case NONE:
-                        arrow_image.setVisibility(View.VISIBLE);
-                        Animation animation = AnimationUtils.loadAnimation(getApplicationContext(),R.anim.translate);
-                        arrow_image.startAnimation(animation);
                         scan();
                         break;
                     case SEARCH_READY:
@@ -153,7 +150,8 @@ public class FindForm extends AppCompatActivity {
         KalmanFilter kalmanFilter= null;
         double progress_rssi = -65;
         double AR_RSSI,PRO_RSSI=0;
-
+        double standard_rssi = -75;
+        int far_Distance_Count = 0, near_Distance_Count = 0;
         @RequiresApi(api = Build.VERSION_CODES.O)
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
@@ -177,30 +175,35 @@ public class FindForm extends AppCompatActivity {
                             Toast.makeText(getApplicationContext(), " 근처에 있습니다. 조금만 앞으로 이동해주세요." + String.valueOf((int)(filtered_rssi)), Toast.LENGTH_SHORT).show();
                             break;
                         } else {
-                            Distance_Count++;
-                            if(Distance_Count == 15) {
-                                Toast.makeText(getApplicationContext(), " 신호가 멀어지고 있습니다. :" + String.valueOf((int)(filtered_rssi)), Toast.LENGTH_SHORT).show();
-                                Distance_Count=0;
+                            if((int)filtered_rssi < (int)standard_rssi ) {
+                                //멀어지면
+                                far_Distance_Count++;
+                                near_Distance_Count = 0;
+                                standard_rssi = filtered_rssi;
+                                if(far_Distance_Count == 3) {
+                                    Toast.makeText(getApplicationContext(), " 신호가 멀어지고 있습니다. :" + String.valueOf((int)(filtered_rssi)), Toast.LENGTH_SHORT).show();
+                                }
+                            }
+                            else{   //가까워지면
+                                near_Distance_Count++;
+                                far_Distance_Count = 0;
+                                standard_rssi = filtered_rssi;
+                                if(near_Distance_Count == 3) {
+                                    Toast.makeText(getApplicationContext(), " 신호가 가까워지고 있습니다. :" + String.valueOf((int)(filtered_rssi)), Toast.LENGTH_SHORT).show();
+                                }
                             }
                         }
                     } else {
-                        if(Distance_Count == 0) {
-                            if(filtered_rssi>-65) {
-                                Toast.makeText(getApplicationContext(), " 이 근방에 있나봐요 바로 찾기모드로 진행됩니다.", Toast.LENGTH_SHORT).show();
-                                Mode = CUR_MODE.PROGRESS;
-                                Intent intent = new Intent(getApplicationContext(), ProgressbarForm.class);
-                                startActivity(intent);
-                                Mode = CUR_MODE.PROGRESS;
-                                break;
-                            }
-                            Mode = CUR_MODE.SEARCH_READY;
-                            Toast.makeText(getApplicationContext(), " 찾기모드가 준비 되었습니다. 버튼을 눌러 시작해주세요", Toast.LENGTH_SHORT).show();
-                            kalmanFilter = null;
-                            filtered_rssied=0.0f;
-                            increase=0;
-                        } else {
-                            Distance_Count=0;
-                        }
+//                        if(filtered_rssi>-65) {
+//                            Toast.makeText(getApplicationContext(), " 이 근방에 있나봐요 바로 찾기모드로 진행됩니다.", Toast.LENGTH_SHORT).show();
+//                            Mode = CUR_MODE.PROGRESS;
+//                            Intent intent = new Intent(getApplicationContext(), ProgressbarForm.class);
+//                            startActivity(intent);
+//                            Mode = CUR_MODE.PROGRESS;
+//                            break;
+//                        }
+                        Mode = CUR_MODE.SEARCH_READY;
+                        Toast.makeText(getApplicationContext(), " 찾기모드가 준비 되었습니다. 버튼을 눌러 시작해주세요", Toast.LENGTH_SHORT).show();
                     }
                     break;
                 case SEARCHING:
@@ -242,37 +245,23 @@ public class FindForm extends AppCompatActivity {
                     if(AR_Mode == AR_MODE.NONE) {
                         AR_RSSI = filtered_rssi; // AR중에 젤 최소값
                         AR_Mode = AR_MODE.SEARCHING;
-                        break;
                     } else if(AR_Mode == AR_MODE.SEARCHING) {
-                        Toast.makeText(getApplicationContext(), "RSSI :"+filtered_rssi, Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getApplicationContext(), "RSSI :"+filtered_rssi + "| AR_RSSI : "+ AR_RSSI, Toast.LENGTH_SHORT).show();
                         if(AR_RSSI < filtered_rssi) {
                             AR_RSSI = filtered_rssi;
-                        } else {
-                            if(AR_RSSI-3 < filtered_rssi){
-                                increase++;
-                            } else {
-                                if(increase > 10) {
-                                    Toast.makeText(getApplicationContext(), "이전 방향으로 돌려주세요.", Toast.LENGTH_SHORT).show();
-                                    AR_Mode = AR_MODE.SEARCHED;
-                                    increase = 0;
-                                    break;
-                                }
-                                increase = 0;
-                            }
+                            AR_Mode = AR_MODE.SEARCHED;
                         }
-                        break;
-                    } else if(AR_Mode == AR_MODE.SEARCHED) {
+                    } else if (AR_Mode == AR_MODE.SEARCHED) {
+                        if(AR_RSSI < filtered_rssi) {
+                            AR_RSSI = filtered_rssi;
+                            AR_Mode = AR_MODE.SEARCHED;
+                            break;
+                        }
                         if(AR_RSSI-2 < filtered_rssi) {
+                            AR_RSSI = filtered_rssi;
                             AR_Mode = AR_MODE.SEARCH_FINISH;
                             break;
-                        } else {
-                            Toast.makeText(getApplicationContext(), "AR_RSSI : "+AR_RSSI + "| RSSI :"+filtered_rssi, Toast.LENGTH_SHORT).show();
                         }
-                    }
-                    if(filtered_rssi > -65) {
-                        Intent intent = new Intent(getApplicationContext(), ProgressbarForm.class);
-                        startActivity(intent);
-                        Mode = CUR_MODE.PROGRESS;
                     }
                     break;
                 case PROGRESS:
@@ -282,7 +271,7 @@ public class FindForm extends AppCompatActivity {
                         break;
                     }
                     if(PRO_RSSI-1 > filtered_rssi) {
-                        if(increase == 3) {
+                        if(increase == 5) {
                             increase = 0;
                             PRO_RSSI = filtered_rssi;
                         } else {
@@ -290,116 +279,19 @@ public class FindForm extends AppCompatActivity {
                         }
                         break;
                     } else {
-                        PRO_RSSI = filtered_rssi;
+
                         increase = 0;
                     }
-
                     if(control == 0) {
-
-//                        int tmp;
-//
-//                        tmp = -65 - (int)filtered_rssi;
-
+                        int tmp,alpha = 0 ,beta = 0;
+                        tmp = (int)-65 - (int)filtered_rssi;
                         Toast.makeText(getApplicationContext(), "rssi::" + filtered_rssi,Toast.LENGTH_SHORT).show();
-
-                        if(filtered_rssi >= -70) {
-
-
-                            if(filtered_rssi <= -66) {
-                                ProgressbarForm.test.progress(1);
-                            }
-
-                            else if(filtered_rssi <= -64) {
-                                ProgressbarForm.test.progress(2);
-                            }
-
-                            else if(filtered_rssi <= -61) {
-                                ProgressbarForm.test.progress(3);
-                            }
-
-                            else if(filtered_rssi <= -58){
-                                ProgressbarForm.test.progress(4);
-                            }
-                            else if(filtered_rssi <= -55) {
-                                ProgressbarForm.test.progress(5);
-                            }
-
-                            else if(filtered_rssi <= -52) {
-                                ProgressbarForm.test.progress(6);
-                            }
-
-                            else if(filtered_rssi <= -49) {
-                                ProgressbarForm.test.progress(7);
-                            }
-                            else if(filtered_rssi <= -46) {
-                                ProgressbarForm.test.progress(8);
-                            }
-                            else if(filtered_rssi <= -43) {
-                                ProgressbarForm.test.progress(9);
-                            }
-                            //-40보다 가까워지면
-                            else {
-                                ProgressbarForm.test.progress(10);
-                            }
-
-
-//                            System.out.println("tmp"+tmp);
-//                            if(tmp > 0) {
-//
-//                                a = (int)(tmp/(0.15));
-//                                System.out.println("a"+a);
-//
-//
-//                                for(int i=0; i<a; i++) {
-//                                    if(ProgressbarForm.circleProgressBar.getProgress()==100) {
-//                                        break;
-//                                    }
-//
-//                                    runOnUiThread(new Runnable() {
-//                                        @Override
-//                                        public void run() {
-//                                            ProgressbarForm.circleProgressBar.setProgress(ProgressbarForm.circleProgressBar.getProgress()+1);
-//
-//                                        }
-//                                    });
-//
-//                                    try {
-//                                        Thread.sleep(100);
-//                                    } catch (InterruptedException e) {
-//                                        e.printStackTrace();
-//                                    }
-//                                }
-//                            }
-//                            else {
-//                                b = (int)(tmp/(0.15)*-1);
-//                                System.out.println("b"+b);
-//
-//                                for(int i=0; i<b; i++) {
-//                                    if(ProgressbarForm.circleProgressBar.getProgress()==0) {
-//                                        break;
-//                                    }
-//                                    runOnUiThread(new Runnable() {
-//                                        @Override
-//                                        public void run() {
-//                                            ProgressbarForm.circleProgressBar.setProgress(ProgressbarForm.circleProgressBar.getProgress()-1);
-//                                        }
-//                                    });
-//
-//                                    try {
-//                                        Thread.sleep(100);
-//                                    } catch (InterruptedException e) {
-//                                        e.printStackTrace();
-//                                    }
-//                                }
-//                            }
-
-                            progress_rssi = filtered_rssi;
-                        }
-                        //filtered_rssi가 -65보다 더 작은 범위로 가면 예외처리
-                        else {
+                        if(filtered_rssi >= -65) {
+                            ProgressbarForm.test.progress(tmp);
+                        } else {
                             Toast.makeText(getApplicationContext(), " 범위 밖입니다 rssi::" + filtered_rssi,Toast.LENGTH_SHORT).show();
                         }
-
+                        PRO_RSSI = filtered_rssi;
                         control = 0;
                     }
                     //control == 3 이 아니면

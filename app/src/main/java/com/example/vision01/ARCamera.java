@@ -99,7 +99,7 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
     private Mesh virtualObjectMesh;
     private Shader virtualObjectShader;
     private final ArrayList<Anchor> anchors = new ArrayList<>();
-
+    private final ArrayList<Anchor> ScanAncors = new ArrayList<>();
     private final DepthSettings depthSettings = new DepthSettings();
     private boolean[] depthSettingsMenuDialogCheckboxes = new boolean[2];
 
@@ -169,7 +169,6 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
             planeRenderer = new PlaneRenderer(render);
             backgroundRenderer = new BackgroundRenderer(render);
             virtualSceneFramebuffer = new Framebuffer(render, /*width=*/ 1, /*height=*/ 1);
-
             cubemapFilter =
                     new SpecularCubemapFilter(
                             render, CUBEMAP_RESOLUTION, CUBEMAP_NUMBER_OF_IMPORTANCE_SAMPLES);
@@ -184,7 +183,6 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
             final int dfgResolution = 64;
             final int dfgChannels = 2;
             final int halfFloatSize = 2;
-
             ByteBuffer buffer =
                     ByteBuffer.allocateDirect(dfgResolution * dfgResolution * dfgChannels * halfFloatSize);
             try (InputStream is = getAssets().open("models/dfg.raw")) {
@@ -204,7 +202,6 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
                     GLES30.GL_HALF_FLOAT,
                     buffer);
             GLError.maybeThrowGLException("Failed to populate DFG texture", "glTexImage2D");
-
             // Point cloud
 //            pointCloudShader =
 //                    Shader.createFromAssets(
@@ -224,13 +221,13 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
             Texture virtualObjectAlbedoTexture =
                     Texture.createFromAsset(
                             render,
-                            "models/pawn_albedo2.png",
+                            "models/pawn_albedo.png",
                             Texture.WrapMode.CLAMP_TO_EDGE,
                             Texture.ColorFormat.SRGB);
             Texture virtualObjectPbrTexture =
                     Texture.createFromAsset(
                             render,
-                            "models/pawn_roughness_metallic_ao2.png",
+                            "models/pawn_roughness_metallic_ao.png",
                             Texture.WrapMode.CLAMP_TO_EDGE,
                             Texture.ColorFormat.LINEAR);
             virtualObjectMesh = Mesh.createFromAsset(render, "models/pawn.obj");
@@ -389,19 +386,13 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
                 // spam the logcat with this.
             }
         }
-        if(FindForm.AR_Mode == FindForm.AR_MODE.SEARCH_FINISH) {
+
+
+
+        if(FindForm.AR_Mode == FindForm.AR_MODE.SEARCHING||FindForm.AR_Mode == FindForm.AR_MODE.SEARCHED ||FindForm.AR_Mode == FindForm.AR_MODE.SEARCH_FINISH) {
             handleTap(frame, camera);
-            FindForm.AR_Mode = FindForm.AR_MODE.FINISH;
         }
 
-
-       /* if(blueA) { //round
-            if(Math.round(bluecam.tx()*100) == Math.round(camera.getPose().tx()*100)) {
-                handleTap(frame, camera);
-            } else{
-                System.out.println("bluecam.tx() :" +Math.round(bluecam.tx()*100) +"camera.getPose().tx() :"+ Math.round(camera.getPose().tx()*100));
-            }
-        }*/
 
 
         // Keep the screen unlocked while tracking, but allow it to lock when tracking stops.
@@ -414,7 +405,7 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
             if (camera.getTrackingFailureReason() == TrackingFailureReason.NONE) {
                 message = SEARCHING_PLANE_MESSAGE;
             } else {
-                message = TrackingStateHelper.getTrackingFailureReasonString(camera); // 블루투스 방향 다를시 메세지
+                message = TrackingStateHelper.getTrackingFailureReasonString(camera);
             }
         }
         if (message == null) {
@@ -444,45 +435,71 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
         // Get camera matrix and draw.
         camera.getViewMatrix(viewMatrix, 0);
 
-
         // Update lighting parameters in the shader
         updateLightEstimation(frame.getLightEstimate(), viewMatrix);
 
         // Visualize anchors created by touch.
         render.clear(virtualSceneFramebuffer, 0f, 0f, 0f, 0f);
-
-        for (Anchor anchor : anchors) {
+        if(FindForm.AR_Mode == FindForm.AR_MODE.FINISH) {
+            for (Anchor anchor : anchors) {
             /*if (anchor.getTrackingState() != TrackingState.TRACKING) { 우리에게 필요한건 트레킹이 아님
                 continue;
             }*/
 
-            // Get the current pose of an Anchor in world space. The Anchor pose is updated
-            // during calls to session.update() as ARCore refines its estimate of the world.
-            anchor.getPose().toMatrix(modelMatrix, 0);
+                // Get the current pose of an Anchor in world space. The Anchor pose is updated
+                // during calls to session.update() as ARCore refines its estimate of the world.
+                anchor.getPose().toMatrix(modelMatrix, 0);
 
-            // Calculate model/view/projection matrices
-            Matrix.multiplyMM(modelViewMatrix, 0, viewMatrix, 0, modelMatrix, 0);
-            Matrix.multiplyMM(modelViewProjectionMatrix, 0, projectionMatrix, 0, modelViewMatrix, 0);
+                // Calculate model/view/projection matrices
+                Matrix.multiplyMM(modelViewMatrix, 0, viewMatrix, 0, modelMatrix, 0);
+                Matrix.multiplyMM(modelViewProjectionMatrix, 0, projectionMatrix, 0, modelViewMatrix, 0);
 
-            // Update shader properties and draw
-            virtualObjectShader.setMat4("u_ModelView", modelViewMatrix);
-            virtualObjectShader.setMat4("u_ModelViewProjection", modelViewProjectionMatrix);
-            render.draw(virtualObjectMesh, virtualObjectShader, virtualSceneFramebuffer);
+                // Update shader properties and draw
+                virtualObjectShader.setMat4("u_ModelView", modelViewMatrix);
+                virtualObjectShader.setMat4("u_ModelViewProjection", modelViewProjectionMatrix);
+                render.draw(virtualObjectMesh, virtualObjectShader, virtualSceneFramebuffer);
+            }
         }
-
         // Compose the virtual scene with the background.
         backgroundRenderer.drawVirtualScene(render, virtualSceneFramebuffer, Z_NEAR, Z_FAR);
     }
+    private Boolean[] pose = {false,false,false,false,false}; // 0 = -2 1 = -1  2 = 0  3 = 1 4 = 2
     // Handle only one tap per frame, as taps are usually low frequency compared to frame rate.
     private void handleTap(Frame frame, Camera camera) {
         //Pose cameraPose = frame.getCamera().getDisplayOrientedPose();
         List<HitResult> hitResultList;
         hitResultList =
                 frame.hitTestInstantPlacement((float) 500, (float)1000,2);
-
         for (HitResult hit : hitResultList) {
-            if (anchors.size() == 11) break;
-            anchors.add(hit.createAnchor());
+            ScanAncors.add(hit.createAnchor());
+            switch ((int)hit.createAnchor().getPose().tx()){
+                case -2 :
+                    pose[0]=true;
+                    break;
+                case -1:
+                    pose[1]=true;
+                    break;
+                case 0:
+                    pose[2]=true;
+                    break;
+                case 1:
+                    pose[3]=true;
+                    break;
+                case 2:
+                    pose[4]=true;
+                    break;
+            }
+            if(FindForm.AR_Mode==FindForm.AR_MODE.SEARCH_FINISH) {
+                anchors.clear();
+                anchors.add(hit.createAnchor());
+                FindForm.AR_Mode=FindForm.AR_MODE.SEARCHING;
+            }
+
+            if(pose[0]&&pose[1]&&pose[2]&&pose[3]&&pose[4]
+                    &&((int)(hit.createAnchor().getPose().tx()*10)==(int)(ScanAncors.get(0).getPose().tx()*10))) { //&&(hit.createAnchor().getPose().tx()==ScanAncors.get(0).getPose().tx())
+                ScanAncors.clear();
+                FindForm.AR_Mode=FindForm.AR_MODE.FINISH;
+            }
         }
     }
 
