@@ -140,7 +140,7 @@ public class FindForm extends AppCompatActivity {
     }
 
     private void scan() {
-        ScanFilter filter = new ScanFilter.Builder().setDeviceAddress("F0:08:D1:D4:F8:52").build(); //F8:95:EA:5A:DD:3C, F0:08:D1:D4:F8:52
+        ScanFilter filter = new ScanFilter.Builder().setDeviceAddress("F8:95:EA:5A:DD:3C").build(); //F8:95:EA:5A:DD:3C, F0:08:D1:D4:F8:52
         //F0:08:D1:D4:F8:52
         ArrayList<ScanFilter> filters = new ArrayList<ScanFilter>();
         filters.add(filter);
@@ -150,8 +150,8 @@ public class FindForm extends AppCompatActivity {
                 .setReportDelay(0)
                 .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
                 .build();
-        //leScanner.startScan(filters,settings,scanCallback);
-        leScanner.startScan(scanCallback);
+        leScanner.startScan(filters,settings,scanCallback);
+        //leScanner.startScan(scanCallback);
     }
 
     private ScanCallback scanCallback = new ScanCallback() {
