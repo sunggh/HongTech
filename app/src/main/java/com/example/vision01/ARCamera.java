@@ -17,8 +17,13 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.util.Log;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.Toast;
 
+import com.bumptech.glide.Glide;
 import com.example.vision01.common.helpers.CameraPermissionHelper;
 import com.example.vision01.common.helpers.DepthSettings;
 import com.example.vision01.common.helpers.DisplayRotationHelper;
@@ -153,6 +158,16 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
 
         tapHelper = new TapHelper(/*context=*/ this);
         surfaceView.setOnTouchListener(tapHelper);
+//        FrameLayout frameLayout = (FrameLayout) findViewById(R.id.frameLayout);
+//        ImageView imageView = new ImageView(this);
+//        Glide.with(this).load(R.raw.sample).into(imageView);
+//        imageView.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+//        frameLayout.addView(imageView);
+//
+//        //이미지뷰 숨기기
+//        imageView.setVisibility(View.INVISIBLE);
+//        //이미지뷰 제거
+//        //frameLayout.removeView(imageView);
     }
 
 
@@ -462,6 +477,8 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
         }
         // Compose the virtual scene with the background.
         backgroundRenderer.drawVirtualScene(render, virtualSceneFramebuffer, Z_NEAR, Z_FAR);
+
+
     }
     private Boolean[] pose = {false,false,false,false,false}; // 0 = -2 1 = -1  2 = 0  3 = 1 4 = 2
     // Handle only one tap per frame, as taps are usually low frequency compared to frame rate.

@@ -73,8 +73,6 @@ public class FindForm extends AppCompatActivity {
         FINISH;
     }
 
-
-
     SurfaceView pc;
 
     @Override
@@ -194,51 +192,16 @@ public class FindForm extends AppCompatActivity {
                             }
                         }
                     } else {
-//                        if(filtered_rssi>-65) {
-//                            Toast.makeText(getApplicationContext(), " 이 근방에 있나봐요 바로 찾기모드로 진행됩니다.", Toast.LENGTH_SHORT).show();
-//                            Mode = CUR_MODE.PROGRESS;
-//                            Intent intent = new Intent(getApplicationContext(), ProgressbarForm.class);
-//                            startActivity(intent);
-//                            Mode = CUR_MODE.PROGRESS;
-//                            break;
-//                        }
-                        Mode = CUR_MODE.SEARCH_READY;
-                        Toast.makeText(getApplicationContext(), " 찾기모드가 준비 되었습니다. 버튼을 눌러 시작해주세요", Toast.LENGTH_SHORT).show();
-                    }
-                    break;
-                case SEARCHING:
-                    Distance_Count++;
-                    if(Distance_Count==20) {
-                        Mode = CUR_MODE.SEARCH;
-                        Distance_Count=0;
-                        rssi_direction[direction] = filtered_rssi;
-                        Kalmans[direction] = kalmanFilter;
-                        Log.i("onScanResult", direction+" | " +  rssi_direction[direction]);
-                        direction++;
-                        if(direction == 4) { // 4방향을 다 돌았으면
-                            Mode = CUR_MODE.SEARCHED;
-                            /* 젤 큰 RSSI 방향과 두번째로 큰 RSSI 방향 탐색 */
-                            double temp = -9999, tems = -9999;
-                            for (int a = 0; a < 4; a++) {
-                                if (rssi_direction[a] > temp) {
-                                    temp = rssi_direction[a];
-                                    first_direction = a;
-                                } else {
-                                    if (rssi_direction[a] > tems) {
-                                        tems = rssi_direction[a];
-                                        second_direction = a;
-                                        firstRssi = rssi_direction[a];
-                                        secondRssi = firstRssi;
-                                    }
-                                }
-                            }
-                            Toast.makeText(getApplicationContext(), "방향 : " + first_direction, Toast.LENGTH_SHORT).show();
-                            Log.i("onScanResult", "|" + "젤 작은 방향" + "|" + first_direction + "| 두번째 |" + second_direction);
-                            kalmanFilter = Kalmans[first_direction]; // 젤 작은 RSSI 필터 적용
+                        if(filtered_rssi>-65) {
+                            Toast.makeText(getApplicationContext(), " 이 근방에 있나봐요 바로 찾기모드로 진행됩니다.", Toast.LENGTH_SHORT).show();
+                            Mode = CUR_MODE.PROGRESS;
+                            Intent intent = new Intent(getApplicationContext(), ProgressbarForm.class);
+                            startActivity(intent);
+                            Mode = CUR_MODE.PROGRESS;
                             break;
                         }
-                        Toast.makeText(getApplicationContext(), "오른쪽으로 다음 방향", Toast.LENGTH_SHORT).show();
-                        kalmanFilter = null;
+                        Mode = CUR_MODE.SEARCH_READY;
+                        Toast.makeText(getApplicationContext(), " 찾기모드가 준비 되었습니다. 버튼을 눌러 시작해주세요", Toast.LENGTH_SHORT).show();
                     }
                     break;
                 case AR:
@@ -266,38 +229,39 @@ public class FindForm extends AppCompatActivity {
                     break;
                 case PROGRESS:
                     if(ProgressbarForm.circleProgressBar == null) break;
-                    if(PRO_RSSI == 0 ) {
-                        PRO_RSSI = filtered_rssi;
-                        break;
-                    }
-                    if(PRO_RSSI-1 > filtered_rssi) {
-                        if(increase == 5) {
-                            increase = 0;
-                            PRO_RSSI = filtered_rssi;
-                        } else {
-                            increase++;
-                        }
-                        break;
-                    } else {
 
-                        increase = 0;
-                    }
                     if(control == 0) {
-                        int tmp,alpha = 0 ,beta = 0;
-                        tmp = (int)-65 - (int)filtered_rssi;
-                        Toast.makeText(getApplicationContext(), "rssi::" + filtered_rssi,Toast.LENGTH_SHORT).show();
-                        if(filtered_rssi >= -65) {
-                            ProgressbarForm.test.progress(tmp);
-                        } else {
-                            Toast.makeText(getApplicationContext(), " 범위 밖입니다 rssi::" + filtered_rssi,Toast.LENGTH_SHORT).show();
+
+                        //현재 rssi에서 들어온 rssi값 빼기
+                        int percent = (int)progress_rssi-(int)filtered_rssi;
+
+                        //테스트를 위한 rssi값 표시
+                        Toast.makeText(getApplicationContext(), "rssi : " + filtered_rssi,Toast.LENGTH_SHORT).show();
+
+                        if((int)filtered_rssi < -67) {
+                            Toast.makeText(getApplicationContext(), "RSSI 신호가 범위 내에 들도록 이동해 주세요.",Toast.LENGTH_SHORT).show();
+
+                            //ProgressbarForm.test.circleProgressBar.setProgress(0);
                         }
-                        PRO_RSSI = filtered_rssi;
+
+                        else if((int)filtered_rssi >= -52) {
+                            Toast.makeText(getApplicationContext(), "물건이 바로 근처에 있습니다.",Toast.LENGTH_SHORT).show();
+                            ProgressbarForm.test.circleProgressBar.setProgress(100);
+                        }
+
+                        else {
+                            ProgressbarForm.test.progress(percent);
+
+                            progress_rssi = filtered_rssi;
+                        }
+
                         control = 0;
                     }
-                    //control == 3 이 아니면
+
                     else {
-                        //control++;
+                        control++;
                     }
+
                     break;
             }
         }
