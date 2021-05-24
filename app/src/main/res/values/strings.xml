@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">vision0.1</string>
+    <string name="app_name">어디갔노</string>
     <string name="title_activity_a_r_camera">ARCamera</string>
     <string name="title_activity_device_list_form">DeviceListForm</string>
     <!-- Strings used for fragments for navigation -->
