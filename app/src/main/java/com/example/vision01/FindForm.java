@@ -130,7 +130,7 @@ public class FindForm extends AppCompatActivity {
                         break;
 //                    case SEARCHED:
 //                        Intent intent = new Intent(getApplicationContext(), ARCamera.class);
-//                        startActivity(intent);
+//                        startActivity(intent);ㅂㅂ
 //                        Mode = CUR_MODE.AR;
 //                        break;
                 }
