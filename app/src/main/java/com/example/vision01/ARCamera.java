@@ -80,6 +80,8 @@ import java.util.List;
 
 import android.opengl.GLSurfaceView;
 
+import static com.example.vision01.FindForm.AR_Mode;
+
 public class ARCamera extends AppCompatActivity implements RenderingHelper.Renderer{
 
     private RenderingHelper render;
@@ -404,7 +406,7 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
 
 
 
-        if(FindForm.AR_Mode == FindForm.AR_MODE.SEARCHING||FindForm.AR_Mode == FindForm.AR_MODE.SEARCHED ||FindForm.AR_Mode == FindForm.AR_MODE.SEARCH_FINISH) {
+        if(AR_Mode == FindForm.AR_MODE.SEARCHING|| AR_Mode == FindForm.AR_MODE.SEARCHED || AR_Mode == FindForm.AR_MODE.SEARCH_FINISH) {
             handleTap(frame, camera);
         }
 
@@ -422,7 +424,17 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
             } else {
                 message = TrackingStateHelper.getTrackingFailureReasonString(camera);
             }
+        } else {
+            if(AR_Mode == FindForm.AR_MODE.NONE) {
+                message = "최적화 중입니다. 잠시만 기다려주세요.";
+            } else if(AR_Mode == FindForm.AR_MODE.SEARCHING || AR_Mode == FindForm.AR_MODE.SEARCHED){
+                message = "오른쪽으로 천천히 돌려주세요.";
+            }else if (AR_Mode == FindForm.AR_MODE.FINISH) {
+                message = "서칭이 완료 되었습니다. 카메라를 돌려 AR을 향해 가주세요.";
+            }
         }
+
+
         if (message == null) {
             messageSnackbarHelper.hide(this);
         } else {
@@ -455,7 +467,7 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
 
         // Visualize anchors created by touch.
         render.clear(virtualSceneFramebuffer, 0f, 0f, 0f, 0f);
-        if(FindForm.AR_Mode == FindForm.AR_MODE.FINISH) {
+        if(AR_Mode == FindForm.AR_MODE.FINISH) {
             for (Anchor anchor : anchors) {
             /*if (anchor.getTrackingState() != TrackingState.TRACKING) { 우리에게 필요한건 트레킹이 아님
                 continue;
@@ -506,16 +518,16 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
                     pose[4]=true;
                     break;
             }
-            if(FindForm.AR_Mode==FindForm.AR_MODE.SEARCH_FINISH) {
+            if(AR_Mode==FindForm.AR_MODE.SEARCH_FINISH) {
                 anchors.clear();
                 anchors.add(hit.createAnchor());
-                FindForm.AR_Mode=FindForm.AR_MODE.SEARCHING;
+                AR_Mode=FindForm.AR_MODE.SEARCHING;
             }
 
             if(pose[0]&&pose[1]&&pose[2]&&pose[3]&&pose[4]
                     &&((int)(hit.createAnchor().getPose().tx()*10)==(int)(ScanAncors.get(0).getPose().tx()*10))) { //&&(hit.createAnchor().getPose().tx()==ScanAncors.get(0).getPose().tx())
                 ScanAncors.clear();
-                FindForm.AR_Mode=FindForm.AR_MODE.FINISH;
+                AR_Mode=FindForm.AR_MODE.FINISH;
             }
         }
     }

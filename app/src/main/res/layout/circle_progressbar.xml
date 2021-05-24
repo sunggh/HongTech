@@ -1,24 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
      <com.dinuscxj.progressbar.CircleProgressBar
-        android:id="@+id/circle_progressbar"
-        android:layout_width="300dp"
-        android:layout_height="300dp"
-        app:progress_text_size="40sp"
+         android:id="@+id/circle_progressbar"
+         android:layout_width="300dp"
+         android:layout_height="300dp"
+         app:progress_text_size="40sp"
 
-        app:style="line"
-        app:progress_stroke_width="15dp"
-        app:progress_stroke_cap="butt"
-        app:progress_start_color="#FFBB00"
-        app:progress_end_color="#ABF200"
+         app:style="line"
+         app:progress_stroke_width="15dp"
+         app:progress_stroke_cap="butt"
+         app:progress_start_color="#FFBB00"
+         app:progress_end_color="#ABF200"
 
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+         app:layout_constraintBottom_toBottomOf="parent"
+         app:layout_constraintEnd_toEndOf="parent"
+         app:layout_constraintStart_toStartOf="parent"
+         app:layout_constraintTop_toTopOf="parent" />
+
+     <Button
+         android:id="@+id/button_complete"
+         android:layout_width="179dp"
+         android:layout_height="52dp"
+         android:layout_margin="80dp"
+         android:text="찾기 완료"
+         android:textSize="20dp"
+         android:backgroundTint="#FFBB00"
+         app:layout_constraintBottom_toBottomOf="parent"
+         app:layout_constraintEnd_toEndOf="parent"
+         app:layout_constraintStart_toStartOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

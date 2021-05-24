@@ -10,6 +10,8 @@ import android.bluetooth.le.ScanSettings;
 import android.content.Context;
 import android.content.Intent;
 //import android.graphics.Camera;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.Camera;
 import android.os.Build;
@@ -24,6 +26,7 @@ import android.view.animation.AnimationUtils;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Switch;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import android.Manifest;
@@ -54,6 +57,11 @@ public class FindForm extends AppCompatActivity {
     public static AR_MODE AR_Mode = AR_MODE.NONE;
     private BluetoothAdapter bluetoothAdapter;
     private BluetoothLeScanner leScanner;
+    public ImageView level1;
+    public ImageView level2;
+    public ImageView level3;
+    public TextView guide;
+    public TextView level_tx;
 
     public enum CUR_MODE {
         NONE,
@@ -84,7 +92,11 @@ public class FindForm extends AppCompatActivity {
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         leScanner = bluetoothAdapter.getBluetoothLeScanner();
 
-        pc = findViewById(R.id.surfaceView_cam);
+        level1=findViewById(R.id.rssi_level1);
+        level2=findViewById(R.id.rssi_level2);
+        level3=findViewById(R.id.rssi_level3);
+        guide=findViewById(R.id.textView_guide);
+        level_tx=findViewById(R.id.textView_level);
 
         //동적퍼미션 작업
         if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.M){
@@ -98,7 +110,6 @@ public class FindForm extends AppCompatActivity {
         }
 
         findButton = (Button)findViewById(R.id.button_find);
-        final ImageView arrow_image = (ImageView)findViewById(R.id.right_arrow);
 
         findButton.setOnClickListener(new View.OnClickListener(){ //파인드
             @Override
@@ -150,6 +161,7 @@ public class FindForm extends AppCompatActivity {
         double AR_RSSI,PRO_RSSI=0;
         double standard_rssi = -75;
         int far_Distance_Count = 0, near_Distance_Count = 0;
+        int current_Level = 0;
         @RequiresApi(api = Build.VERSION_CODES.O)
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
@@ -168,48 +180,71 @@ public class FindForm extends AppCompatActivity {
             }
             switch(Mode) {
                 case NONE:
-                    if(filtered_rssi<=-73) {
-                        if(filtered_rssi > -75) {
-                            Toast.makeText(getApplicationContext(), " 근처에 있습니다. 조금만 앞으로 이동해주세요." + String.valueOf((int)(filtered_rssi)), Toast.LENGTH_SHORT).show();
-                            break;
-                        } else {
-                            if((int)filtered_rssi < (int)standard_rssi ) {
-                                //멀어지면
-                                far_Distance_Count++;
-                                near_Distance_Count = 0;
-                                standard_rssi = filtered_rssi;
-                                if(far_Distance_Count == 3) {
-                                    Toast.makeText(getApplicationContext(), " 신호가 멀어지고 있습니다. :" + String.valueOf((int)(filtered_rssi)), Toast.LENGTH_SHORT).show();
-                                }
-                            }
-                            else{   //가까워지면
-                                near_Distance_Count++;
-                                far_Distance_Count = 0;
-                                standard_rssi = filtered_rssi;
-                                if(near_Distance_Count == 3) {
-                                    Toast.makeText(getApplicationContext(), " 신호가 가까워지고 있습니다. :" + String.valueOf((int)(filtered_rssi)), Toast.LENGTH_SHORT).show();
-                                }
-                            }
-                        }
-                    } else {
-                        if(filtered_rssi>-65) {
-                            Toast.makeText(getApplicationContext(), " 이 근방에 있나봐요 바로 찾기모드로 진행됩니다.", Toast.LENGTH_SHORT).show();
-                            Mode = CUR_MODE.PROGRESS;
-                            Intent intent = new Intent(getApplicationContext(), ProgressbarForm.class);
-                            startActivity(intent);
-                            Mode = CUR_MODE.PROGRESS;
-                            break;
-                        }
+                    Log.e("CheckRSSI","value - " + filtered_rssi);
+                    current_Level = checkLevel(filtered_rssi);
+                    if(current_Level == 3){
+                        guide.setText("물건 찾기 버튼을 눌러주세요! AR화면으로 전환됩니다.");
                         Mode = CUR_MODE.SEARCH_READY;
-                        Toast.makeText(getApplicationContext(), " 찾기모드가 준비 되었습니다. 버튼을 눌러 시작해주세요", Toast.LENGTH_SHORT).show();
+                        //Toast.makeText(getApplicationContext(), " 찾기모드가 준비 되었습니다. 버튼을 눌러 시작해주세요", Toast.LENGTH_SHORT).show();
+                        break;
+                    }
+                    if(filtered_rssi > -75) {
+                        //Toast.makeText(getApplicationContext(), " 근처에 있습니다. 조금만 앞으로 이동해주세요." + String.valueOf((int)(filtered_rssi)), Toast.LENGTH_SHORT).show();
+                        guide.setText("물건이 근처에 있습니다. 조금 더 앞으로 이동해주세요.");
+                        break;
+                    } else {
+                        if(standard_rssi == 0) {
+                            standard_rssi = (int) filtered_rssi;
+                            break;
+                        }
+                        if((int)filtered_rssi < standard_rssi ) {
+                            //멀어지면
+                            Log.e("Far",filtered_rssi + "," + standard_rssi +"-" + far_Distance_Count );
+                            far_Distance_Count++;
+                            near_Distance_Count = 0;
+                            standard_rssi = (int)filtered_rssi;
+                            if(far_Distance_Count == 3) {
+                                Log.d("ToastFar","멀어지고 있습니다.");
+                                //Toast.makeText(getApplicationContext(), " 신호가 멀어지고 있습니다. :" + String.valueOf((int)(filtered_rssi)), Toast.LENGTH_SHORT).show();
+//                                    if(mToast != null) mToast.cancel(); //다른 토스트가 실시간으로 올라올때 바로바로 지워지게 하는 방법
+//                                    mToast = Toast.makeText(getApplicationContext(), " 신호가 멀어지고 있습니다. :" + String.valueOf((int)(filtered_rssi)), Toast.LENGTH_SHORT);
+//                                    mToast.show();
+                                far_Distance_Count = 0;
+                                guide.setText("물건과 멀어지고 있습니다. 다시 돌아가 주세요.");
+                            }
+                        }
+                        else{   //가까워지면
+                            Log.e("Near",filtered_rssi + "," + standard_rssi+"-" + near_Distance_Count);
+                            near_Distance_Count++;
+                            far_Distance_Count = 0;
+                            standard_rssi = (int)filtered_rssi;
+                            if(near_Distance_Count == 3) {
+                                Log.d("ToastFar","가까워지고 있습니다.");
+                                //Toast.makeText(getApplicationContext(), " 신호가 가까워지고 있습니다. :" + String.valueOf((int)(filtered_rssi)), Toast.LENGTH_SHORT).show();
+//                                    if(mToast != null) mToast.cancel();
+//                                    mToast = Toast.makeText(getApplicationContext(), " 신호가 가까워지고 있습니다. :" + String.valueOf((int)(filtered_rssi)), Toast.LENGTH_SHORT);
+//                                    mToast.show();
+                                near_Distance_Count = 0;
+                                guide.setText("물건과 가까워지고 있습니다. 좀 더 앞으로 가주세요.");
+                            }
+                        }
                     }
                     break;
                 case AR:
                     if(AR_Mode == AR_MODE.NONE) {
+                        if(control == 0) {
+                            kalmanFilter = new KalmanFilter(rssi); // 칼만 필터 생성
+                        }
+                        if(control != 20) {
+                            //  Toast.makeText(getApplicationContext(), "최적화 중입니다 잠시만 기다려주세요. ("+control+"/10)", Toast.LENGTH_SHORT).show();
+                            AR_RSSI = filtered_rssi;
+                            control++;
+                            break;
+                        }
+                        control=0;
                         AR_RSSI = filtered_rssi; // AR중에 젤 최소값
                         AR_Mode = AR_MODE.SEARCHING;
                     } else if(AR_Mode == AR_MODE.SEARCHING) {
-                        Toast.makeText(getApplicationContext(), "RSSI :"+filtered_rssi + "| AR_RSSI : "+ AR_RSSI, Toast.LENGTH_SHORT).show();
                         if(AR_RSSI < filtered_rssi) {
                             AR_RSSI = filtered_rssi;
                             AR_Mode = AR_MODE.SEARCHED;
@@ -220,7 +255,7 @@ public class FindForm extends AppCompatActivity {
                             AR_Mode = AR_MODE.SEARCHED;
                             break;
                         }
-                        if(AR_RSSI-2 < filtered_rssi) {
+                        if(AR_RSSI-0.5 > filtered_rssi) {
                             AR_RSSI = filtered_rssi;
                             AR_Mode = AR_MODE.SEARCH_FINISH;
                             break;
@@ -228,24 +263,48 @@ public class FindForm extends AppCompatActivity {
                     }
                     break;
                 case PROGRESS:
+
+//                    if(PRO_RSSI == 0 ) {
+//                        PRO_RSSI = filtered_rssi;
+//                        break;
+//                    }
+//                    if(PRO_RSSI-1 > filtered_rssi) {
+//                        if(increase == 3) {
+//                            increase = 0;
+//                            PRO_RSSI = filtered_rssi;
+//                        } else {
+//                            increase++;
+//                        }
+//                        break;
+//                    } else {
+//                        PRO_RSSI = filtered_rssi;
+//                        increase = 0;
+//                    }
+
                     if(ProgressbarForm.circleProgressBar == null) break;
 
                     if(control == 0) {
 
                         //현재 rssi에서 들어온 rssi값 빼기
-                        int percent = (int)progress_rssi-(int)filtered_rssi;
+                        double percent = progress_rssi-filtered_rssi;
 
                         //테스트를 위한 rssi값 표시
                         Toast.makeText(getApplicationContext(), "rssi : " + filtered_rssi,Toast.LENGTH_SHORT).show();
 
-                        if((int)filtered_rssi < -67) {
+                        if(filtered_rssi < -75) {
                             Toast.makeText(getApplicationContext(), "RSSI 신호가 범위 내에 들도록 이동해 주세요.",Toast.LENGTH_SHORT).show();
 
-                            //ProgressbarForm.test.circleProgressBar.setProgress(0);
+                            ProgressbarForm.test.circleProgressBar.setProgress(0);
                         }
 
-                        else if((int)filtered_rssi >= -52) {
+//                        else if(filtered_rssi < -75) {
+//                            Intent intent = new Intent(getApplicationContext(), FindForm.class);
+//                            startActivity(intent);
+//                        }
+
+                        else if(filtered_rssi >= -50) {
                             Toast.makeText(getApplicationContext(), "물건이 바로 근처에 있습니다.",Toast.LENGTH_SHORT).show();
+
                             ProgressbarForm.test.circleProgressBar.setProgress(100);
                         }
 
@@ -288,7 +347,85 @@ public class FindForm extends AppCompatActivity {
         }
     };
 
+    public int checkLevel(double filtered_rssi){
+        int check = 0;
+        //Level1 (-82 < filtered_rssi < -77)
+        //Level2 (-77 < filtered_rssi < -72)
+        //Level3 (filtered_rssi > -72) : 3단계에 달성하면 3단계로 고정되고 물건찾기 버튼 활성화
+        if(filtered_rssi < -82){
+            level_tx.setText("0단계");
+            setLevel0();
+        }
+        else if(filtered_rssi < -77){
+            level_tx.setText("1단계");
+            check = 1;
+            setLevel1();
+        }
+        else if(filtered_rssi < -72){
+            level_tx.setText("2단계");
+            check = 2;
+            setLevel2();
+        }
+        else{
+            level_tx.setText("3단계");
+            check = 3;
+            setLevel3();
+            //findButton.setBackgroundColor();
+        }
+        return check;
+    }
+    public void setLevel1(){
+        GradientDrawable drawable = (GradientDrawable) ContextCompat.getDrawable(this, R.drawable.shape_60);
+        drawable.setColor(Color.rgb(205,255,204));  //#CDFFCC
+        level1.setImageDrawable(drawable);
 
+        drawable = (GradientDrawable) ContextCompat.getDrawable(this, R.drawable.shape_80);
+        drawable.setColor(Color.WHITE);
+        level2.setImageDrawable(drawable);
+
+        drawable = (GradientDrawable) ContextCompat.getDrawable(this, R.drawable.shape_100);
+        drawable.setColor(Color.WHITE);
+        level3.setImageDrawable(drawable);
+    }
+    public void setLevel2(){
+        GradientDrawable drawable = (GradientDrawable) ContextCompat.getDrawable(this, R.drawable.shape_60);
+        drawable.setColor(Color.rgb(205,255,204));  //#CDFFCC
+        level1.setImageDrawable(drawable);
+
+        drawable = (GradientDrawable) ContextCompat.getDrawable(this, R.drawable.shape_80);
+        drawable.setColor(Color.rgb(205,255,204));  //#CDFFCC
+        level2.setImageDrawable(drawable);
+
+        drawable = (GradientDrawable) ContextCompat.getDrawable(this, R.drawable.shape_100);
+        drawable.setColor(Color.WHITE);
+        level3.setImageDrawable(drawable);
+    }
+    public void setLevel3(){
+        GradientDrawable drawable = (GradientDrawable) ContextCompat.getDrawable(this, R.drawable.shape_60);
+        drawable.setColor(Color.rgb(205,255,204));  //#CDFFCC
+        level1.setImageDrawable(drawable);
+
+        drawable = (GradientDrawable) ContextCompat.getDrawable(this, R.drawable.shape_80);
+        drawable.setColor(Color.rgb(205,255,204));  //#CDFFCC
+        level2.setImageDrawable(drawable);
+
+        drawable = (GradientDrawable) ContextCompat.getDrawable(this, R.drawable.shape_100);
+        drawable.setColor(Color.rgb(205,255,204));  //#CDFFCC
+        level3.setImageDrawable(drawable);
+    }
+    public void setLevel0(){
+        GradientDrawable drawable = (GradientDrawable) ContextCompat.getDrawable(this, R.drawable.shape_60);
+        drawable.setColor(Color.WHITE);  //#CDFFCC
+        level1.setImageDrawable(drawable);
+
+        drawable = (GradientDrawable) ContextCompat.getDrawable(this, R.drawable.shape_80);
+        drawable.setColor(Color.WHITE);  //#CDFFCC
+        level2.setImageDrawable(drawable);
+
+        drawable = (GradientDrawable) ContextCompat.getDrawable(this, R.drawable.shape_100);
+        drawable.setColor(Color.WHITE);  //#CDFFCC
+        level3.setImageDrawable(drawable);
+    }
 }
 
 
