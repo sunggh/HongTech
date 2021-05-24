@@ -9,4 +9,44 @@
     <string name="previous">Previous</string>
     <string name="hello_first_fragment">Hello first fragment</string>
     <string name="hello_second_fragment">Hello second fragment. Arg: %1$s</string>
+
+    <!-- 도움말 -->
+    <string name="title_activity_help">Help Screen</string>
+    <string name="help">도움말</string>
+    <string name="help_next">Next</string>
+    <string name="help_skip">Skip</string>
+    <string name="help_start">Start</string>
+
+    <string name="help_slide_1_title">스캔화면</string>
+    <string name="help_slide_1_desc">
+        목록에서 찾고자 하는 물건을 클릭하면\n
+        스캔화면으로 넘어갑니다.\n\n
+        스캔화면에서 신호가 3칸이상 잡히게 되면\n
+        찾기버튼이 활성화 됩니다.\n\n
+        버튼을 클릭하여 휴대폰을 정면을 향해 들고\n
+        AR화면을 보며 지시에 따라 한 바퀴 회전합니다.
+    </string>
+
+    <string name="help_slide_2_title">AR모드 설명</string>
+    <string name="help_slide_2_desc">
+        한 바퀴를 회전하면 AR모드 반경 내에서\n
+        해당 물건이 표시가 됩니다.\n\n
+        물건이 보여지는 방면으로 이동하여\n
+        위치가 가까워지면 측정모드로 변경이 됩니다.
+    </string>
+
+    <string name="help_slide_3_title">측정모드 설명</string>
+    <string name="help_slide_3_desc">
+        물건의 위치가 어느정도 가까워지게 되면\n
+        AR모드에서 측정모드로 변경이 됩니다.\n\n
+        측정모드에서는 AR화면이 꺼지고\n
+        물건이 가까워질수록 수치가 올라갑니다.\n\n
+        수치가 어느정도 올라가게 되면\n
+        주변을 확인하여 물건을 찾을 수 있습니다.
+    </string>
+
+    <string name="help_slide_4_title">찾고 난 후</string>
+    <string name="help_slide_4_desc">
+        물건을 찾고나면 찾기버튼을 클릭하여\n다시 목록으로 돌아갑니다.
+    </string>
 </resources>

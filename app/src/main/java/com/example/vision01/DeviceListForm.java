@@ -54,11 +54,17 @@ public class DeviceListForm extends AppCompatActivity {
 
     public static DeviceListForm dlf;
 
+    Button btn_help;
+
     //private DeviceAdpt.Preview mPreview;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_device_list_form);
+
+        btn_help = findViewById(R.id.btn_help);
+        btn_help.setOnClickListener(onClickListener);
+
         InitializeDevices();
         checkLocationPermissions();
         enableBluetooth();
@@ -364,4 +370,16 @@ public class DeviceListForm extends AppCompatActivity {
         Intent intent = new Intent(getApplicationContext(), FindForm.class);
         startActivity(intent);
     }
+
+    View.OnClickListener onClickListener = new View.OnClickListener(){
+        @Override
+        public void onClick(View view){
+            switch (view.getId()){
+                case R.id.btn_help:
+                    Intent intent = new Intent(DeviceListForm.this, HelpForm.class);
+                    startActivity(intent);
+                    finish();
+            }
+        }
+    };
 }
