@@ -184,27 +184,9 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
         anim.setStartOffset(20);
         anim.setRepeatMode(Animation.REVERSE);
         anim.setRepeatCount(100);
-
         txt.startAnimation(anim);
         txt2.startAnimation(anim);
 
-
-
-
-
-
-        displayRotationHelper = new DisplayRotationHelper(/*context=*/ this);
-
-        installRequested = false;
-
-        render = new RenderingHelper(surfaceView, this, getAssets());
-
-        depthSettings.onCreate(this);
-
-        instantPlacementSettings.onCreate(this);
-
-        tapHelper = new TapHelper(/*context=*/ this);
-        surfaceView.setOnTouchListener(tapHelper);
 
 
         GLSurfaceView glview = (GLSurfaceView)findViewById(R.id.surfaceview2);
@@ -594,10 +576,11 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
             if(AR_Mode == FindForm.AR_MODE.NONE) {
                 message = "최적화 중입니다. 잠시만 기다려주세요.";
             } else if(AR_Mode == FindForm.AR_MODE.SEARCHING || AR_Mode == FindForm.AR_MODE.SEARCHED){
-               // message = "오른쪽으로 천천히 돌려주세요.";
-
+                txt2.setText("오른쪽으로 화면을");
+                txt.setText("천천히 돌려주세요!!");
             }else if (AR_Mode == FindForm.AR_MODE.FINISH) {
-                message = "서칭이 완료 되었습니다. 카메라를 돌려 AR을 향해 가주세요.";
+                txt2.setText("화면에 보이는 AR");
+                txt.setText("방향으로 이동 하세요!!");
             }
         }
 
