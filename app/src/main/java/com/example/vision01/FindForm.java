@@ -128,9 +128,9 @@ public class FindForm extends AppCompatActivity {
                     case SEARCH_READY:
                         setLevel0();
                         Toast.makeText(getApplicationContext(),"AR찾기모드가 실행 되었습니다.", Toast.LENGTH_SHORT).show();
-                        Intent intent = new Intent(getApplicationContext(), ProgressbarForm.class);
+                        Intent intent = new Intent(getApplicationContext(), ARCamera.class);
                         startActivity(intent);
-                        Mode = CUR_MODE.PROGRESS;
+                        Mode = CUR_MODE.AR;
                         break;
                     case SEARCH:
                         Toast.makeText(getApplicationContext(),"찾기 재 시작", Toast.LENGTH_SHORT).show();
@@ -275,7 +275,7 @@ public class FindForm extends AppCompatActivity {
                         AR_RSSI = filtered_rssi; // AR중에 젤 최소값
                         AR_Mode = AR_MODE.SEARCHING;
                     } else if(AR_Mode == AR_MODE.SEARCHING) {
-                        if(rssi<filtered_rssi-4) {
+                        if(rssi<filtered_rssi-3) {
                             return;
                         }
                         if(AR_RSSI < rssi) {
@@ -283,7 +283,7 @@ public class FindForm extends AppCompatActivity {
                             AR_Mode = AR_MODE.SEARCHED;
                         }
                     } else if (AR_Mode == AR_MODE.SEARCHED) {
-                        if(rssi<filtered_rssi-4) {
+                        if(rssi<filtered_rssi-3) {
                             return;
                         }
                         if(AR_RSSI < rssi) {
@@ -300,29 +300,37 @@ public class FindForm extends AppCompatActivity {
                             Intent intent = new Intent(getApplicationContext(), ProgressbarForm.class);
                             startActivity(intent);
                             Mode=CUR_MODE.PROGRESS;
+                            kalmanFilter = new KalmanFilter(rssi);
                         }
                     }
                     Toast.makeText(getApplicationContext(), "rssi : " + rssi,Toast.LENGTH_SHORT).show();
                     break;
                 case PROGRESS:
+                    if(control != 20 ){
+                        control ++;
+                        break;
+                    }
+                    if(rssi<filtered_rssi-5) {
+                        return;
+                    }
 
                     if(ProgressbarForm.circleProgressBar == null) break;
 
-                    if(control == 0) {
+                    if(control == 20) {
 
                         //현재 rssi에서 들어온 rssi값 빼기
-                        double percent = progress_rssi - filtered_rssi;
+                        double percent = progress_rssi - rssi;
 
                         //테스트를 위한 rssi값 표시
-                        Toast.makeText(getApplicationContext(), "rssi : " + filtered_rssi,Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getApplicationContext(), "rssi : " + rssi,Toast.LENGTH_SHORT).show();
 
-                        if(filtered_rssi < -70) {
+                        if(rssi < -70) {
                             Toast.makeText(getApplicationContext(), "RSSI 신호가 범위 내에 들도록 이동해 주세요.",Toast.LENGTH_SHORT).show();
 
                             ProgressbarForm.test.circleProgressBar.setProgress(0);
                         }
 
-                        else if(filtered_rssi >= -53) {
+                        else if(rssi >= -53) {
                             Toast.makeText(getApplicationContext(), "물건이 바로 근처에 있습니다.",Toast.LENGTH_SHORT).show();
 
                             ProgressbarForm.test.circleProgressBar.setProgress(100);
@@ -331,14 +339,14 @@ public class FindForm extends AppCompatActivity {
                         else {
                             ProgressbarForm.test.progress(percent);
 
-                            progress_rssi = filtered_rssi;
+                            progress_rssi = rssi;
                         }
 
-                        control = 0;
+                       // control = 0;
                     }
 
                     else {
-                        control++;
+                        //control++;
                     }
 
                     break;

@@ -28,7 +28,7 @@
                 android:layout_height="50dp"
                 android:gravity="center"
                 android:includeFontPadding="false"
-                android:text="< 물건 목록 >"
+                android:text=" 물건 목록 "
                 android:textAlignment="center"
                 android:textSize="24sp" />
 
