@@ -119,10 +119,11 @@ public class FindForm extends AppCompatActivity {
                         scan();
                         break;
                     case SEARCH_READY:
-                        Toast.makeText(getApplicationContext(),"찾기모드가 실행 되었습니다.", Toast.LENGTH_SHORT).show();
-                        Intent intent = new Intent(getApplicationContext(), ProgressbarForm.class);
+                        setLevel0();
+                        Toast.makeText(getApplicationContext(),"AR찾기모드가 실행 되었습니다.", Toast.LENGTH_SHORT).show();
+                        Intent intent = new Intent(getApplicationContext(), ARCamera.class);
                         startActivity(intent);
-                        Mode = CUR_MODE.PROGRESS;
+                        Mode = CUR_MODE.AR;
                         break;
                     case SEARCH:
                         Toast.makeText(getApplicationContext(),"찾기 재 시작", Toast.LENGTH_SHORT).show();
@@ -150,6 +151,7 @@ public class FindForm extends AppCompatActivity {
                 .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
                 .build();
         leScanner.startScan(filters,settings,scanCallback);
+        //leScanner.startScan(scanCallback);
     }
 
     private ScanCallback scanCallback = new ScanCallback() {
@@ -245,31 +247,60 @@ public class FindForm extends AppCompatActivity {
                         AR_RSSI = filtered_rssi; // AR중에 젤 최소값
                         AR_Mode = AR_MODE.SEARCHING;
                     } else if(AR_Mode == AR_MODE.SEARCHING) {
-                        if(AR_RSSI < filtered_rssi) {
-                            AR_RSSI = filtered_rssi;
+                        if(rssi<filtered_rssi-4) {
+                            return;
+                        }
+                        if(AR_RSSI < rssi) {
+                            AR_RSSI = rssi;
                             AR_Mode = AR_MODE.SEARCHED;
                         }
                     } else if (AR_Mode == AR_MODE.SEARCHED) {
-                        if(AR_RSSI < filtered_rssi) {
-                            AR_RSSI = filtered_rssi;
+                        if(rssi<filtered_rssi-4) {
+                            return;
+                        }
+                        if(AR_RSSI < rssi) {
+                            AR_RSSI = rssi;
                             AR_Mode = AR_MODE.SEARCHED;
                             break;
                         }
-                        if(AR_RSSI-0.5 > filtered_rssi) {
-                            AR_RSSI = filtered_rssi;
+                        if(AR_RSSI-2 > rssi) {
                             AR_Mode = AR_MODE.SEARCH_FINISH;
                             break;
                         }
+                    } else if(AR_Mode == AR_MODE.FINISH) {
+                        if(filtered_rssi >=-70) {
+                            Intent intent = new Intent(getApplicationContext(), ProgressbarForm.class);
+                            startActivity(intent);
+                            Mode=CUR_MODE.PROGRESS;
+                        }
                     }
+                    Toast.makeText(getApplicationContext(), "rssi : " + rssi,Toast.LENGTH_SHORT).show();
                     break;
                 case PROGRESS:
+
+//                    if(PRO_RSSI == 0 ) {
+//                        PRO_RSSI = filtered_rssi;
+//                        break;
+//                    }
+//                    if(PRO_RSSI-1 > filtered_rssi) {
+//                        if(increase == 3) {
+//                            increase = 0;
+//                            PRO_RSSI = filtered_rssi;
+//                        } else {
+//                            increase++;
+//                        }
+//                        break;
+//                    } else {
+//                        PRO_RSSI = filtered_rssi;
+//                        increase = 0;
+//                    }
 
                     if(ProgressbarForm.circleProgressBar == null) break;
 
                     if(control == 0) {
 
                         //현재 rssi에서 들어온 rssi값 빼기
-                        double percent = progress_rssi-filtered_rssi;
+                        int percent = (int)progress_rssi-(int)filtered_rssi;
 
                         //테스트를 위한 rssi값 표시
                         Toast.makeText(getApplicationContext(), "rssi : " + filtered_rssi,Toast.LENGTH_SHORT).show();
@@ -339,7 +370,7 @@ public class FindForm extends AppCompatActivity {
             check = 1;
             setLevel1();
         }
-        else if(filtered_rssi < -72){
+        else if(filtered_rssi < -74){
             level_tx.setText("2단계");
             check = 2;
             setLevel2();

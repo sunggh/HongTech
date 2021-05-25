@@ -32,6 +32,12 @@
                 android:textAlignment="center"
                 android:textSize="24sp" />
 
+            <View
+                android:id="@+id/view2"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
             <Button
                 android:id="@+id/btn_help"
                 android:layout_width="120dp"
