@@ -14,7 +14,7 @@ import com.dinuscxj.progressbar.CircleProgressBar;
 
 public class ProgressbarForm extends AppCompatActivity implements CircleProgressBar.ProgressFormatter{
 
-    private static final String DEFAULT_PATTERN = "%d%%";
+    private static final String DEFAULT_PATTERN = ".";
 
     public static CircleProgressBar circleProgressBar;
 
@@ -71,6 +71,7 @@ public class ProgressbarForm extends AppCompatActivity implements CircleProgress
         return String.format(DEFAULT_PATTERN, (int) ((float) progress / (float) max * 100));
     }
 
+    // %가 느리게올라가는거
     public void progress(double percent) {
 
         new Thread(new Runnable() {
@@ -82,13 +83,7 @@ public class ProgressbarForm extends AppCompatActivity implements CircleProgress
                 //progress bar 올라가는 상황 (물건과 가까워지는 상황)
                 if(percent < 0) {
 
-                    double up = (percent/(0.25) * -1);
-
-//                    if(circleProgressBar.getProgress() + up > 100) {
-//                        circleProgressBar.setProgress(100);
-//                        FindForm.Mode=FindForm.CUR_MODE.PROGRESS;
-//                        return;
-//                    }
+                    double up = (percent/(0.17) * -1);
 
                     for(int i = 0; i < up; i++) {
 
@@ -113,13 +108,7 @@ public class ProgressbarForm extends AppCompatActivity implements CircleProgress
                 //progress bar 내려가는 상황 (물건과 멀어지는 상황)
                 else if(percent > 0) {
 
-                    double down = (percent/(0.25));
-
-//                    if(circleProgressBar.getProgress() <= 0) {
-//                        circleProgressBar.setProgress(0);
-//                        FindForm.Mode=FindForm.CUR_MODE.PROGRESS;
-//                        return;
-//                    }
+                    double down = (percent/(0.17));
 
                     for(int i = 0; i < down; i++) {
 
@@ -145,62 +134,3 @@ public class ProgressbarForm extends AppCompatActivity implements CircleProgress
         }).start();
     }
 }
-
-//                int up = 0, down = 0; //a, b는 퍼센트의 값
-//
-//                up = (int)(percent/(0.1) * -1);
-//                //up = up-circleProgressBar.getProgress();
-//
-//                //progress bar 올라가는 상황 (물건과 가까워지는 상황)
-//                if(up > 0) {
-//
-//                    for(int i = 0; i < up; i++) {
-//                        final int progress = i;
-//                        if(circleProgressBar.getProgress() == 100) break;
-//
-//                        runOnUiThread(new Runnable() {
-//                            @Override
-//                            public void run() {
-//                                circleProgressBar.setProgress(circleProgressBar.getProgress()+1);
-//                            }
-//                        });
-//
-//                        try {
-//                            Thread.sleep(10);
-//                        } catch (InterruptedException e) {
-//                            e.printStackTrace();
-//                        }
-//                    }
-//                }
-//
-//                //progress bar 내려가는 상황 (물건과 멀어지는 상황)
-//                if(up < 0) {
-//                    down = up * -1;
-//
-//                    //if(circleProgressBar.getProgress()-down<=0) {
-//                    //    circleProgressBar.setProgress(0);
-//                    //    FindForm.Mode=FindForm.CUR_MODE.PROGRESS;
-//                    //    return;
-//                    //}
-//
-//                    for(int i = 0; i < down; i++) {
-//                        final int progress = i;
-//                        if(circleProgressBar.getProgress() == 0) break;
-//
-//                        runOnUiThread(new Runnable() {
-//                            @Override
-//                            public void run() {
-//                                circleProgressBar.setProgress(circleProgressBar.getProgress()-1);
-//                            }
-//                        });
-//
-//                        try {
-//                            Thread.sleep(10);
-//                        } catch (InterruptedException e) {
-//                            e.printStackTrace();
-//                        }
-//                    }
-//                }
-//                int up = 0;
-//
-//                up = (int)(percent/(0.1) * -1);
