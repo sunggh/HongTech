@@ -120,9 +120,9 @@ public class FindForm extends AppCompatActivity {
                         break;
                     case SEARCH_READY:
                         Toast.makeText(getApplicationContext(),"찾기모드가 실행 되었습니다.", Toast.LENGTH_SHORT).show();
-                        Intent intent = new Intent(getApplicationContext(), ARCamera.class);
+                        Intent intent = new Intent(getApplicationContext(), ProgressbarForm.class);
                         startActivity(intent);
-                        Mode = CUR_MODE.AR;
+                        Mode = CUR_MODE.PROGRESS;
                         break;
                     case SEARCH:
                         Toast.makeText(getApplicationContext(),"찾기 재 시작", Toast.LENGTH_SHORT).show();
@@ -264,23 +264,6 @@ public class FindForm extends AppCompatActivity {
                     break;
                 case PROGRESS:
 
-//                    if(PRO_RSSI == 0 ) {
-//                        PRO_RSSI = filtered_rssi;
-//                        break;
-//                    }
-//                    if(PRO_RSSI-1 > filtered_rssi) {
-//                        if(increase == 3) {
-//                            increase = 0;
-//                            PRO_RSSI = filtered_rssi;
-//                        } else {
-//                            increase++;
-//                        }
-//                        break;
-//                    } else {
-//                        PRO_RSSI = filtered_rssi;
-//                        increase = 0;
-//                    }
-
                     if(ProgressbarForm.circleProgressBar == null) break;
 
                     if(control == 0) {
@@ -291,18 +274,13 @@ public class FindForm extends AppCompatActivity {
                         //테스트를 위한 rssi값 표시
                         Toast.makeText(getApplicationContext(), "rssi : " + filtered_rssi,Toast.LENGTH_SHORT).show();
 
-                        if(filtered_rssi < -75) {
+                        if(filtered_rssi < -70) {
                             Toast.makeText(getApplicationContext(), "RSSI 신호가 범위 내에 들도록 이동해 주세요.",Toast.LENGTH_SHORT).show();
 
                             ProgressbarForm.test.circleProgressBar.setProgress(0);
                         }
 
-//                        else if(filtered_rssi < -75) {
-//                            Intent intent = new Intent(getApplicationContext(), FindForm.class);
-//                            startActivity(intent);
-//                        }
-
-                        else if(filtered_rssi >= -50) {
+                        else if(filtered_rssi >= -53) {
                             Toast.makeText(getApplicationContext(), "물건이 바로 근처에 있습니다.",Toast.LENGTH_SHORT).show();
 
                             ProgressbarForm.test.circleProgressBar.setProgress(100);
