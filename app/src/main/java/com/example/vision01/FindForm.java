@@ -125,15 +125,6 @@ public class FindForm extends AppCompatActivity {
                         startActivity(intent);
                         Mode = CUR_MODE.AR;
                         break;
-                    case SEARCH:
-                        Toast.makeText(getApplicationContext(),"찾기 재 시작", Toast.LENGTH_SHORT).show();
-                        Mode = CUR_MODE.SEARCHING;
-                        break;
-//                    case SEARCHED:
-//                        Intent intent = new Intent(getApplicationContext(), ARCamera.class);
-//                        startActivity(intent);ㅂㅂ
-//                        Mode = CUR_MODE.AR;
-//                        break;
                 }
             }
         });
@@ -247,22 +238,34 @@ public class FindForm extends AppCompatActivity {
                         AR_RSSI = filtered_rssi; // AR중에 젤 최소값
                         AR_Mode = AR_MODE.SEARCHING;
                     } else if(AR_Mode == AR_MODE.SEARCHING) {
-                        if(AR_RSSI < filtered_rssi) {
-                            AR_RSSI = filtered_rssi;
+                        if(rssi<filtered_rssi-4) {
+                            return;
+                        }
+                        if(AR_RSSI < rssi) {
+                            AR_RSSI = rssi;
                             AR_Mode = AR_MODE.SEARCHED;
                         }
                     } else if (AR_Mode == AR_MODE.SEARCHED) {
-                        if(AR_RSSI < filtered_rssi) {
-                            AR_RSSI = filtered_rssi;
+                        if(rssi<filtered_rssi-4) {
+                            return;
+                        }
+                        if(AR_RSSI < rssi) {
+                            AR_RSSI = rssi;
                             AR_Mode = AR_MODE.SEARCHED;
                             break;
                         }
-                        if(AR_RSSI-0.5 > filtered_rssi) {
-                            AR_RSSI = filtered_rssi;
+                        if(AR_RSSI-2 > rssi) {
                             AR_Mode = AR_MODE.SEARCH_FINISH;
                             break;
                         }
+                    } else if(AR_Mode == AR_MODE.FINISH) {
+                        if(filtered_rssi >=-70) {
+                            Intent intent = new Intent(getApplicationContext(), ProgressbarForm.class);
+                            startActivity(intent);
+                            Mode=CUR_MODE.PROGRESS;
+                        }
                     }
+                    Toast.makeText(getApplicationContext(), "rssi : " + rssi,Toast.LENGTH_SHORT).show();
                     break;
                 case PROGRESS:
 
@@ -295,7 +298,6 @@ public class FindForm extends AppCompatActivity {
 
                         if((int)filtered_rssi < -70) {
                             Toast.makeText(getApplicationContext(), "RSSI 신호가 범위 내에 들도록 이동해 주세요.",Toast.LENGTH_SHORT).show();
-
                             ProgressbarForm.test.circleProgressBar.setProgress(0);
                         }
 
@@ -358,7 +360,7 @@ public class FindForm extends AppCompatActivity {
             check = 1;
             setLevel1();
         }
-        else if(filtered_rssi < -72){
+        else if(filtered_rssi < -74){
             level_tx.setText("2단계");
             check = 2;
             setLevel2();
