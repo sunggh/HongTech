@@ -259,7 +259,7 @@ public class FindForm extends AppCompatActivity {
                             break;
                         }
                     } else if(AR_Mode == AR_MODE.FINISH) {
-                        if(filtered_rssi >=-70) {
+                        if(filtered_rssi >=-71) {
                             Intent intent = new Intent(getApplicationContext(), ProgressbarForm.class);
                             startActivity(intent);
                             Mode=CUR_MODE.PROGRESS;
