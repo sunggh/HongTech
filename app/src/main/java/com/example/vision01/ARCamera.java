@@ -219,35 +219,21 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
                     GLES30.GL_HALF_FLOAT,
                     buffer);
             GLError.maybeThrowGLException("Failed to populate DFG texture", "glTexImage2D");
-            // Point cloud
-//            pointCloudShader =
-//                    Shader.createFromAssets(
-//                            render, "shaders/point_cloud.vert", "shaders/point_cloud.frag", /*defines=*/ null)
-//                            .setVec4(
-//                                    "u_Color", new float[] {31.0f / 255.0f, 188.0f / 255.0f, 210.0f / 255.0f, 1.0f})
-//                            .setFloat("u_PointSize", 5.0f);
-//            // four entries per vertex: X, Y, Z, confidence
-//            pointCloudVertexBuffer =
-//                    new VertexBuffer(render, /*numberOfEntriesPerVertex=*/ 4, /*entries=*/ null);
-//            final VertexBuffer[] pointCloudVertexBuffers = {pointCloudVertexBuffer};
-//            pointCloudMesh =
-//                    new Mesh(
-//                            render, Mesh.PrimitiveMode.POINTS, /*indexBuffer=*/ null, pointCloudVertexBuffers); // 4/27
 
             // Virtual object to render (ARCore pawn)
             Texture virtualObjectAlbedoTexture =
                     Texture.createFromAsset(
                             render,
-                            "models/pawn_albedo.png",
+                            "models/ball_color.png",
                             Texture.WrapMode.CLAMP_TO_EDGE,
                             Texture.ColorFormat.SRGB);
             Texture virtualObjectPbrTexture =
                     Texture.createFromAsset(
                             render,
-                            "models/pawn_roughness_metallic_ao.png",
+                            "models/ball_color.png",
                             Texture.WrapMode.CLAMP_TO_EDGE,
                             Texture.ColorFormat.LINEAR);
-            virtualObjectMesh = Mesh.createFromAsset(render, "models/pawn.obj");
+            virtualObjectMesh = Mesh.createFromAsset(render, "models/ball.obj");
             virtualObjectShader =
                     Shader.createFromAssets(
                             render,
