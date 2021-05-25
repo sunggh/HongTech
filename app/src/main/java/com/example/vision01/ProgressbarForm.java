@@ -14,7 +14,7 @@ import com.dinuscxj.progressbar.CircleProgressBar;
 
 public class ProgressbarForm extends AppCompatActivity implements CircleProgressBar.ProgressFormatter{
 
-    private static final String DEFAULT_PATTERN = ".";
+    private static final String DEFAULT_PATTERN = "%d%%";
 
     public static CircleProgressBar circleProgressBar;
 

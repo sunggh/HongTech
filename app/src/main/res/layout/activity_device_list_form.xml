@@ -28,7 +28,7 @@
                 android:layout_height="50dp"
                 android:gravity="center"
                 android:includeFontPadding="false"
-                android:text="물건 찾기"
+                android:text="< 물건 목록 >"
                 android:textAlignment="center"
                 android:textSize="24sp" />
 
@@ -46,6 +46,7 @@
                 android:background="#00ff0000"
                 android:includeFontPadding="false"
                 android:text="@string/help"
+                android:textStyle="bold"
                 android:textColor="@color/black"
                 android:textSize="20dp" />
 
