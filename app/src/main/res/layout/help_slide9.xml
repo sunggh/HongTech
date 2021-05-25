@@ -9,21 +9,21 @@
         android:orientation="vertical">
 
         <ImageView
-            android:id="@+id/add_img"
+            android:id="@+id/find_img"
             android:layout_width="400dp"
             android:layout_height="400dp"
             android:layout_gravity="center"
-            android:src="@drawable/help_add" />
+            android:src="@drawable/help_find" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_alignLeft="@id/add_img"
-            android:layout_alignTop="@id/add_img"
-            android:layout_alignRight="@id/add_img"
-            android:layout_alignBottom="@id/add_img"
+            android:layout_alignLeft="@id/find_img"
+            android:layout_alignTop="@id/find_img"
+            android:layout_alignRight="@id/find_img"
+            android:layout_alignBottom="@id/find_img"
             android:layout_marginTop="20dp"
-            android:text="@string/help_slide_2_title"
+            android:text="@string/help_slide_9_title"
             android:layout_gravity="center"
             android:textAlignment="center"
             android:textColor="@android:color/black"
@@ -33,12 +33,12 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_alignLeft="@id/add_img"
-            android:layout_alignTop="@id/add_img"
-            android:layout_alignRight="@id/add_img"
-            android:layout_alignBottom="@id/add_img"
+            android:layout_alignLeft="@id/find_img"
+            android:layout_alignTop="@id/find_img"
+            android:layout_alignRight="@id/find_img"
+            android:layout_alignBottom="@id/find_img"
             android:layout_marginTop="20dp"
-            android:text="@string/help_slide_2_desc"
+            android:text="@string/help_slide_9_desc"
             android:layout_gravity="center"
             android:textAlignment="center"
             android:textColor="@android:color/black"

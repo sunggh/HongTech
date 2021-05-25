@@ -58,7 +58,12 @@ public class HelpForm extends AppCompatActivity{
                 R.layout.help_slide1,
                 R.layout.help_slide2,
                 R.layout.help_slide3,
-                R.layout.help_slide4};
+                R.layout.help_slide4,
+                R.layout.help_slide5,
+                R.layout.help_slide6,
+                R.layout.help_slide7,
+                R.layout.help_slide8,
+                R.layout.help_slide9};
 
         // adding bottom dots
         addBottomDots(0);
@@ -132,7 +137,7 @@ public class HelpForm extends AppCompatActivity{
             // changing the next button text 'NEXT' / 'GOT IT'
             if (position == layouts.length - 1) {
                 // last page. make button text to GOT IT
-                btnNext.setText(getString(R.string.help_start));
+                btnNext.setText(getString(R.string.help_start   ));
                 btnSkip.setVisibility(View.GONE);
             } else {
                 // still pages are left
