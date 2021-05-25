@@ -16,6 +16,9 @@ import android.hardware.camera2.CameraDevice;
 import android.hardware.Camera;
 import android.os.Build;
 import android.os.Bundle;
+import android.text.Spannable;
+import android.text.SpannableString;
+import android.text.style.ForegroundColorSpan;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.SurfaceHolder;
@@ -62,6 +65,11 @@ public class FindForm extends AppCompatActivity {
     public ImageView level3;
     public TextView guide;
     public TextView level_tx;
+
+    SpannableString farMsg;
+    SpannableString nearMsg;
+    SpannableString nearByMsg;
+    SpannableString catchMsg;
 
     public enum CUR_MODE {
         NONE,
@@ -116,7 +124,6 @@ public class FindForm extends AppCompatActivity {
             public void onClick(View v) {
                 switch (Mode) {
                     case NONE:
-                        scan();
                         break;
                     case SEARCH_READY:
                         setLevel0();
@@ -137,6 +144,25 @@ public class FindForm extends AppCompatActivity {
                 }
             }
         });
+        //글자색 바꾸기
+        farMsg = new SpannableString("물건과 멀어지고 있습니다.\n 다시 돌아가 주세요.");
+        nearMsg = new SpannableString("물건과 가까워지고 있습니다.\n 좀 더 앞으로 가주세요.");
+        nearByMsg = new SpannableString("물건이 근처에 있습니다.\n 조금 더 앞으로 가주세요.");
+        catchMsg = new SpannableString("물건 찾기 버튼을 눌러주세요!\n AR화면으로 전환됩니다.");
+
+        farMsg.setSpan( new ForegroundColorSpan( Color.RED ), 4, 8, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE );
+        farMsg.setSpan( new ForegroundColorSpan( Color.RED ), 18, farMsg.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE );
+
+        nearMsg.setSpan( new ForegroundColorSpan( Color.RED ), 4, 9, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE );
+        nearMsg.setSpan( new ForegroundColorSpan( Color.RED ), 20, nearMsg.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE );
+
+        nearByMsg.setSpan( new ForegroundColorSpan( Color.RED ), 4, 7, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE );
+        nearByMsg.setSpan( new ForegroundColorSpan( Color.RED ), 19, nearByMsg.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE );
+
+        catchMsg.setSpan( new ForegroundColorSpan( Color.RED ), 0, 16, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE );
+
+        //실행하면 바로 스캔
+        scan();
     }
 
     private void scan() {
@@ -164,6 +190,7 @@ public class FindForm extends AppCompatActivity {
         double standard_rssi = -75;
         int far_Distance_Count = 0, near_Distance_Count = 0;
         int current_Level = 0;
+
         @RequiresApi(api = Build.VERSION_CODES.O)
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
@@ -185,14 +212,15 @@ public class FindForm extends AppCompatActivity {
                     Log.e("CheckRSSI","value - " + filtered_rssi);
                     current_Level = checkLevel(filtered_rssi);
                     if(current_Level == 3){
-                        guide.setText("물건 찾기 버튼을 눌러주세요! AR화면으로 전환됩니다.");
+                        guide.setText(catchMsg);
                         Mode = CUR_MODE.SEARCH_READY;
+                        findButton.setBackgroundColor(Color.rgb(45,28,122));
                         //Toast.makeText(getApplicationContext(), " 찾기모드가 준비 되었습니다. 버튼을 눌러 시작해주세요", Toast.LENGTH_SHORT).show();
                         break;
                     }
                     if(filtered_rssi > -75) {
                         //Toast.makeText(getApplicationContext(), " 근처에 있습니다. 조금만 앞으로 이동해주세요." + String.valueOf((int)(filtered_rssi)), Toast.LENGTH_SHORT).show();
-                        guide.setText("물건이 근처에 있습니다. 조금 더 앞으로 이동해주세요.");
+                        guide.setText(nearByMsg);
                         break;
                     } else {
                         if(standard_rssi == 0) {
@@ -201,33 +229,33 @@ public class FindForm extends AppCompatActivity {
                         }
                         if((int)filtered_rssi < standard_rssi ) {
                             //멀어지면
-                            Log.e("Far",filtered_rssi + "," + standard_rssi +"-" + far_Distance_Count );
+                            //Log.e("Far",filtered_rssi + "," + standard_rssi +"-" + far_Distance_Count );
                             far_Distance_Count++;
                             near_Distance_Count = 0;
                             standard_rssi = (int)filtered_rssi;
-                            if(far_Distance_Count == 3) {
-                                Log.d("ToastFar","멀어지고 있습니다.");
+                            if(far_Distance_Count == 1) {
+                                guide.setText(farMsg);
+                                //Log.d("ToastFar","멀어지고 있습니다.");
                                 //Toast.makeText(getApplicationContext(), " 신호가 멀어지고 있습니다. :" + String.valueOf((int)(filtered_rssi)), Toast.LENGTH_SHORT).show();
 //                                    if(mToast != null) mToast.cancel(); //다른 토스트가 실시간으로 올라올때 바로바로 지워지게 하는 방법
 //                                    mToast = Toast.makeText(getApplicationContext(), " 신호가 멀어지고 있습니다. :" + String.valueOf((int)(filtered_rssi)), Toast.LENGTH_SHORT);
 //                                    mToast.show();
                                 far_Distance_Count = 0;
-                                guide.setText("물건과 멀어지고 있습니다. 다시 돌아가 주세요.");
                             }
                         }
                         else{   //가까워지면
-                            Log.e("Near",filtered_rssi + "," + standard_rssi+"-" + near_Distance_Count);
+                            //Log.e("Near",filtered_rssi + "," + standard_rssi+"-" + near_Distance_Count);
                             near_Distance_Count++;
                             far_Distance_Count = 0;
                             standard_rssi = (int)filtered_rssi;
-                            if(near_Distance_Count == 3) {
-                                Log.d("ToastFar","가까워지고 있습니다.");
+                            if(near_Distance_Count == 2) {
+                                guide.setText(nearMsg);
+                                //Log.d("ToastFar","가까워지고 있습니다.");
                                 //Toast.makeText(getApplicationContext(), " 신호가 가까워지고 있습니다. :" + String.valueOf((int)(filtered_rssi)), Toast.LENGTH_SHORT).show();
 //                                    if(mToast != null) mToast.cancel();
 //                                    mToast = Toast.makeText(getApplicationContext(), " 신호가 가까워지고 있습니다. :" + String.valueOf((int)(filtered_rssi)), Toast.LENGTH_SHORT);
 //                                    mToast.show();
                                 near_Distance_Count = 0;
-                                guide.setText("물건과 가까워지고 있습니다. 좀 더 앞으로 가주세요.");
                             }
                         }
                     }
@@ -347,8 +375,8 @@ public class FindForm extends AppCompatActivity {
     public int checkLevel(double filtered_rssi){
         int check = 0;
         //Level1 (-82 < filtered_rssi < -77)
-        //Level2 (-77 < filtered_rssi < -72)
-        //Level3 (filtered_rssi > -72) : 3단계에 달성하면 3단계로 고정되고 물건찾기 버튼 활성화
+        //Level2 (-77 < filtered_rssi < -74)
+        //Level3 (filtered_rssi > -74) : 3단계에 달성하면 3단계로 고정되고 물건찾기 버튼 활성화
         if(filtered_rssi < -82){
             level_tx.setText("0단계");
             setLevel0();
@@ -358,7 +386,7 @@ public class FindForm extends AppCompatActivity {
             check = 1;
             setLevel1();
         }
-        else if(filtered_rssi < -72){
+        else if(filtered_rssi < -74){
             level_tx.setText("2단계");
             check = 2;
             setLevel2();
