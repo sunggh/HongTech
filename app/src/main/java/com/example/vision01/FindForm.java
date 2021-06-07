@@ -51,7 +51,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class FindForm extends AppCompatActivity {
-
+    public static FindForm findForm;
     private Button findButton;
     private int first_direction=-1,second_direction = -1;
     private KalmanFilter[] Kalmans = new KalmanFilter[4];
@@ -59,13 +59,13 @@ public class FindForm extends AppCompatActivity {
     public static CUR_MODE Mode = CUR_MODE.NONE;
     public static AR_MODE AR_Mode = AR_MODE.NONE;
     private BluetoothAdapter bluetoothAdapter;
-    private BluetoothLeScanner leScanner;
+    public BluetoothLeScanner leScanner=null;
     public ImageView level1;
     public ImageView level2;
     public ImageView level3;
     public TextView guide;
     public TextView level_tx;
-
+    public String serialNum;
     SpannableString farMsg;
     SpannableString nearMsg;
     SpannableString nearByMsg;
@@ -105,7 +105,7 @@ public class FindForm extends AppCompatActivity {
         level3=findViewById(R.id.rssi_level3);
         guide=findViewById(R.id.textView_guide);
         level_tx=findViewById(R.id.textView_level);
-
+        serialNum = getIntent().getStringExtra("serialNum");
         //동적퍼미션 작업
         if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.M){
             int permissionResult= checkSelfPermission(Manifest.permission.CAMERA);
@@ -163,10 +163,13 @@ public class FindForm extends AppCompatActivity {
 
         //실행하면 바로 스캔
         scan();
+        findForm = this;
     }
-
+    public void StopScan() {
+        leScanner.stopScan(scanCallback);
+    }
     private void scan() {
-        ScanFilter filter = new ScanFilter.Builder().setDeviceAddress("F0:08:D1:D4:F8:52").build(); //F8:95:EA:5A:DD:3C, F0:08:D1:D4:F8:52
+        ScanFilter filter = new ScanFilter.Builder().setDeviceAddress(serialNum).build(); //F8:95:EA:5A:DD:3C, F0:08:D1:D4:F8:52
         //F0:08:D1:D4:F8:52
         ArrayList<ScanFilter> filters = new ArrayList<ScanFilter>();
         filters.add(filter);
@@ -177,10 +180,11 @@ public class FindForm extends AppCompatActivity {
                 .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
                 .build();
         leScanner.startScan(filters,settings,scanCallback);
-        //leScanner.startScan(scanCallback);
+
+        //leScanner.stopScan(scanCallback);
     }
 
-    private ScanCallback scanCallback = new ScanCallback() {
+    public ScanCallback scanCallback = new ScanCallback() {
 
         int Distance_Count = 0, increase = 0, direction = 0, control = 0;
         double[] rssi_direction = new double[10];

@@ -49,6 +49,7 @@ public class ProgressbarForm extends AppCompatActivity implements CircleProgress
                 .setPositiveButton("예", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
+                        FindForm.findForm.StopScan();
                         Intent intent = new Intent(getApplicationContext(), DeviceListForm.class);
                         startActivity(intent);
                     }
@@ -56,6 +57,7 @@ public class ProgressbarForm extends AppCompatActivity implements CircleProgress
                 .setNegativeButton("아니요", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
+                        FindForm.findForm.StopScan();
                         Intent intent = new Intent(getApplicationContext(), FindForm.class);
                         startActivity(intent);
                     }

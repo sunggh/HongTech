@@ -625,7 +625,7 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
 
                 // Get the current pose of an Anchor in world space. The Anchor pose is updated
                 // during calls to session.update() as ARCore refines its estimate of the world.
-                anchor.getPose().toMatrix(modelMatrix, 0);
+                anchor.getPose().toMatrix(modelMatrix, 0); 
                 // Calculate model/view/projection matrices
                 Matrix.multiplyMM(modelViewMatrix, 0, viewMatrix, 0, modelMatrix, 0);
                 Matrix.multiplyMM(modelViewProjectionMatrix, 0, projectionMatrix, 0, modelViewMatrix, 0);

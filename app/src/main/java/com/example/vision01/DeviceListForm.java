@@ -365,9 +365,10 @@ public class DeviceListForm extends AppCompatActivity {
         // 정의해야하는 각 알림의 고유한 int값
         notificationManager.notify(1, builder.build());
     }
-    public void getFindForm() {
+    public void getFindForm(String serialNum) {
         this.BTAdapter.cancelDiscovery();
         Intent intent = new Intent(getApplicationContext(), FindForm.class);
+        intent.putExtra("serialNum",serialNum);
         startActivity(intent);
     }
 
