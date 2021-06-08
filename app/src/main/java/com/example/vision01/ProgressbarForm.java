@@ -1,7 +1,13 @@
 package com.example.vision01;
 
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.os.Bundle;
+import android.view.View;
+import android.widget.Button;
+import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.dinuscxj.progressbar.CircleProgressBar;
@@ -14,6 +20,8 @@ public class ProgressbarForm extends AppCompatActivity implements CircleProgress
 
     public static ProgressbarForm test;
 
+    Button button_complete;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -21,12 +29,43 @@ public class ProgressbarForm extends AppCompatActivity implements CircleProgress
 
         circleProgressBar=findViewById(R.id.circle_progressbar);
 
-        circleProgressBar.setProgress(0); //기본 0 설정
-        circleProgressBar.setMax(100); //최대 설정
+        button_complete = (Button) findViewById(R.id.button_complete);
+
+        //찾기 완료 버튼을 클릭하면
+        button_complete.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View v) {
+                showDialog();
+            }
+        });
 
         test = this;
+    }
 
-        //progress();
+    void showDialog() {
+        AlertDialog.Builder msgBuilder = new AlertDialog.Builder(ProgressbarForm.this)
+                .setTitle("물건 찾기")
+                .setMessage("물건을 찾으셨습니까?")
+                .setPositiveButton("예", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        FindForm.findForm.StopScan();
+                        Intent intent = new Intent(getApplicationContext(), DeviceListForm.class);
+                        startActivity(intent);
+                    }
+                })
+                .setNegativeButton("아니요", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        FindForm.findForm.StopScan();
+                        Intent intent = new Intent(getApplicationContext(), FindForm.class);
+                        startActivity(intent);
+                    }
+                })
+                .setNeutralButton("취소", null);
+
+        AlertDialog msgDlg = msgBuilder.create();
+        msgDlg.show();
     }
 
     @Override
@@ -34,113 +73,64 @@ public class ProgressbarForm extends AppCompatActivity implements CircleProgress
         return String.format(DEFAULT_PATTERN, (int) ((float) progress / (float) max * 100));
     }
 
-    public void progress(int num) {
+    // %가 느리게올라가는거
+    public void progress(double percent) {
 
         new Thread(new Runnable() {
             @Override
             public void run() {
 
                 FindForm.Mode=FindForm.CUR_MODE.PROGRESSING;
-                int tmp=num,alpha = 0 ,beta = 0;
-                System.out.println("num"+num );
+
                 //progress bar 올라가는 상황 (물건과 가까워지는 상황)
+                if(percent < 0) {
 
-                if(tmp < 0) {
-                    tmp *= -1; // 양수화
-                    tmp = (int)(tmp/0.2);
-                    if (tmp <= 10) {
-                        alpha = tmp / 2;
-                        beta = 0;
-                    } else {
-                        alpha = 5;
-                        beta = (tmp - 10) / 5;
-                    }
+                    double up = (percent/(0.17) * -1);
 
-                    for(int i = (circleProgressBar.getProgress()-90)/2; i <= alpha;i++) {
-                        if(circleProgressBar.getProgress()+2 > 10) {
-                            circleProgressBar.setProgress(10);
-                            break;
-                        }
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                circleProgressBar.setProgress(circleProgressBar.getProgress()+2);
-                            }
-                        });
-                        try {
-                            Thread.sleep(100);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                    for(int j = (circleProgressBar.getProgress()-10)/5; j <= beta ;j++) {
-                        if(circleProgressBar.getProgress()+5 > 100) {
-                            circleProgressBar.setProgress(100);
-                            break;
-                        }
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                circleProgressBar.setProgress(circleProgressBar.getProgress()+5);
-                            }
-                        });
-                        try {
-                            Thread.sleep(50);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                } else {
-                    tmp = (int)(tmp/0.2);
-                    if (tmp <= 10) {
-                        alpha = tmp / 2;
-                        beta = 0;
-                    } else {
-                        alpha = 5;
-                        beta = (tmp - 10) / 5;
-                    }
-                    int proalpha= (circleProgressBar.getProgress()-90)/2 - alpha;
-                    int probeta=(circleProgressBar.getProgress()-10)/5 - beta;
-                    for(int j = beta; j <= probeta ;j++) {
-                        if(circleProgressBar.getProgress()-5 <10) {
-                            circleProgressBar.setProgress(10);
-                            break;
-                        }
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                circleProgressBar.setProgress(circleProgressBar.getProgress()-5);
-                            }
-                        });
-                        try {
-                            Thread.sleep(100);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    }
+                    for(int i = 0; i < up; i++) {
 
-                    for(int i = alpha; i <= proalpha;i++) {
-                        if(circleProgressBar.getProgress()-2 < 0) {
-                            circleProgressBar.setProgress(0);
-                            break;
-                        }
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
-                                circleProgressBar.setProgress(circleProgressBar.getProgress()-2);
+                                circleProgressBar.setProgress(circleProgressBar.getProgress()+1);
+
+                                if(circleProgressBar.getProgress() >= 100)
+                                    circleProgressBar.setProgress(100);
                             }
                         });
+
                         try {
-                            Thread.sleep(50);
+                            Thread.sleep(10);
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
                     }
                 }
 
+                //progress bar 내려가는 상황 (물건과 멀어지는 상황)
+                else if(percent > 0) {
 
+                    double down = (percent/(0.17));
 
+                    for(int i = 0; i < down; i++) {
 
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                circleProgressBar.setProgress(circleProgressBar.getProgress()-1);
+
+                                if(circleProgressBar.getProgress() <= 0)
+                                    circleProgressBar.setProgress(0);
+                            }
+                        });
+
+                        try {
+                            Thread.sleep(10);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
                 FindForm.Mode=FindForm.CUR_MODE.PROGRESS;
             }
         }).start();

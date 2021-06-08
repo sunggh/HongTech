@@ -10,8 +10,15 @@ import android.bluetooth.le.ScanSettings;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.PixelFormat;
 import android.media.Image;
+import android.opengl.GLES20;
 import android.opengl.GLES30;
+import android.opengl.GLUtils;
 import android.opengl.Matrix;
 import android.os.Build;
 import android.os.Bundle;
@@ -19,8 +26,11 @@ import android.os.SystemClock;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.AlphaAnimation;
+import android.view.animation.Animation;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.vision01.common.helpers.CameraPermissionHelper;
@@ -73,11 +83,18 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
 import android.opengl.GLSurfaceView;
+
+import javax.microedition.khronos.egl.EGLConfig;
+import javax.microedition.khronos.opengles.GL10;
+
+import static com.example.vision01.FindForm.AR_Mode;
 
 public class ARCamera extends AppCompatActivity implements RenderingHelper.Renderer{
 
@@ -133,15 +150,15 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
     private boolean[] instantPlacementSettingsMenuDialogCheckboxes = new boolean[1];
 
     private static final float APPROXIMATE_DISTANCE_METERS = 2.0f;
-
+    private TextView txt;
+    private TextView txt2;
     private TapHelper tapHelper;
-
+    protected static final int NUM_VERTICES = 3;
     private Session session;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        //registerReceiver(receiver, new IntentFilter(BluetoothDevice.ACTION_FOUND));
         setContentView(R.layout.activity_a_r_camera);
         surfaceView = findViewById(R.id.surfaceview);
 
@@ -157,7 +174,166 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
 
         tapHelper = new TapHelper(/*context=*/ this);
         surfaceView.setOnTouchListener(tapHelper);
+
+        txt= (TextView)findViewById(R.id.textView5);// AR화면에서 텍스트 출력하기 위한 텍스트뷰
+        txt2= (TextView)findViewById(R.id.textView6);
+        //깜빡이는 애니메이션
+        Animation anim;
+        anim = new AlphaAnimation(0.0f,1.0f);
+        anim.setDuration(300);
+        anim.setStartOffset(20);
+        anim.setRepeatMode(Animation.REVERSE);
+        anim.setRepeatCount(100);
+        txt.startAnimation(anim);
+        txt2.startAnimation(anim);
+
+
+
+        GLSurfaceView glview = (GLSurfaceView)findViewById(R.id.surfaceview2);
+        glview.setEGLConfigChooser(false);
+        glview.setEGLContextClientVersion(2);
+        glview.setZOrderOnTop(true);//배경투명하게 하기위함
+        glview.setEGLConfigChooser(8,8,8,8,16,0);//배경투명하게 하기위함
+        glview.getHolder().setFormat(PixelFormat.RGBA_8888); //배경투명하게 하기위함
+        glview.getHolder().setFormat(PixelFormat.TRANSLUCENT);//배경투명하게 하기위함
+
+        glview.setRenderer(new GLSurfaceView.Renderer() {
+
+            private int programObject;
+            private FloatBuffer vertexBuffer;
+
+            @Override
+            public void onSurfaceCreated(GL10 gl, EGLConfig config) {
+                gl.glClearColor(0f, 0f, 0f, 0f);//배경투명하게 하기위함
+            }
+
+            @Override
+            public void onSurfaceChanged(GL10 gl, int width, int height) {
+                GLES20.glViewport(0, 0, width, height);
+                init();
+            }
+
+
+            @Override
+            public void onDrawFrame(GL10 gl) {
+                float x = 0.1f*(float) Math.sin(System.currentTimeMillis()/1000.0);
+                float[] vVertices = new float[] // 삼각형 그리기
+                        {0.0f, 0.5f, 0.0f,
+                                0.0f, -0.5f, 0.0f,
+                                0.5f, 0.0f, 0.0f};
+
+
+                vertexBuffer.rewind();
+                vertexBuffer.put(vVertices);
+                vertexBuffer.rewind();
+
+
+                // Use the program object
+                GLES20.glUseProgram(programObject);
+                int handle = GLES20.glGetUniformLocation(programObject, "uColor");
+                float r = (float) (0.5f+Math.sin(System.currentTimeMillis()/1000.0));
+                float g = (float) (0.5f+Math.sin(System.currentTimeMillis()/300.0));
+                GLES20.glUniform4f(handle, r, g,0,1);
+
+                // Load the vertex data
+                GLES20.glVertexAttribPointer(0, 3, GLES20.GL_FLOAT, false, 0, vertexBuffer);
+                GLES20.glEnableVertexAttribArray(0);
+                GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 3);
+
+                gl.glClearColor(0f, 0f, 0f, 0f); // 배경투명하게
+            }
+
+            public void GLText(GL10 gl) {
+                Bitmap bitmap = Bitmap.createBitmap(256, 256, Bitmap.Config.ARGB_4444);
+                Canvas canvas = new Canvas(bitmap);
+                bitmap.eraseColor(0);
+
+                Paint paint = new Paint();
+                paint.setTextSize(18);
+                paint.setAntiAlias(true);
+                paint.setARGB(0xff, 255, 0, 255);
+                paint.setTextAlign(Paint.Align.LEFT);
+                paint.setTextScaleX(0.5f);
+
+                canvas.drawColor(Color.BLUE);
+                canvas.drawText("testGLText", 10.f, 15.f, paint);
+
+                GLUtils.texImage2D(GL10.GL_TEXTURE_2D, 0, bitmap, 0);
+            }
+
+            private void error(String s) {
+                Log.e("GLTEST", s);
+            }
+
+            private int loadShader(int shaderType, String source) {
+                if (shaderType != GLES20.GL_FRAGMENT_SHADER && shaderType != GLES20.GL_VERTEX_SHADER) {
+                    throw new RuntimeException("Illegal shader type");
+                }
+
+                int shader = GLES20.glCreateShader(shaderType);
+                if (shader != 0) {
+                    GLES20.glShaderSource(shader, source);
+                    GLES20.glCompileShader(shader);
+                    int[] compiled = new int[1];
+                    GLES20.glGetShaderiv(shader, GLES20.GL_COMPILE_STATUS, compiled, 0);
+                    if (compiled[0] == 0) {
+                        error("Could not compile shader :");
+                        error(GLES20.glGetShaderInfoLog(shader));
+                        GLES20.glDeleteShader(shader);
+                        shader = 0;
+                        throw new RuntimeException("Shader Syntax / compilation error");
+                    }
+                }
+                return shader;
+            }
+
+            private void init() {
+                String vShaderStr = "attribute vec4 vPosition; \n" +
+                        "void main() \n" + "{ \n" +
+                        " gl_Position = vPosition; \n" +
+                        "} \n";
+                String fShaderStr = "precision mediump float; \n" +
+                        "uniform vec4 uColor;" +
+                        "void main() \n" +
+                        "{ \n" +
+                        " gl_FragColor = uColor; \n" +
+                        "} \n";
+
+                ByteBuffer vbb = ByteBuffer.allocateDirect(NUM_VERTICES*3*4);
+                vbb.order(ByteOrder.nativeOrder());
+                vertexBuffer = vbb.asFloatBuffer();
+
+                int vertexShader;
+                int fragmentShader;
+
+                // Load the vertex/fragment shaders
+                vertexShader = loadShader(GLES20.GL_VERTEX_SHADER, vShaderStr);
+                fragmentShader = loadShader(GLES20.GL_FRAGMENT_SHADER, fShaderStr);
+
+                // Create the program object
+                programObject = GLES20.glCreateProgram();
+                if (programObject == 0)
+                    return;
+
+                GLES20.glAttachShader(programObject, vertexShader);
+                GLES20.glAttachShader(programObject, fragmentShader);
+                // Bind vPosition to attribute 0
+                GLES20.glBindAttribLocation(programObject, 0, "vPosition");
+                // Link the program
+                GLES20.glLinkProgram(programObject);
+                int[] linkStatus = new int[1];
+                GLES20.glGetProgramiv(programObject, GLES20.GL_LINK_STATUS, linkStatus, 0);
+
+                if (linkStatus[0] != GLES20.GL_TRUE) {
+                    error("Could not link program: ");
+                    error(GLES20.glGetProgramInfoLog(programObject));
+                    GLES20.glDeleteProgram(programObject);
+                    programObject = 0;
+                }
+            }
+        });
     }
+
 
 
     public void onSurfaceChanged(RenderingHelper render, int width, int height) {
@@ -167,8 +343,6 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
 
     @Override
     public void onSurfaceCreated(RenderingHelper render) {
-        // Prepare the rendering objects. This involves reading shaders and 3D model files, so may throw
-        // an IOException.
         try {
             planeRenderer = new PlaneRenderer(render);
             backgroundRenderer = new BackgroundRenderer(render);
@@ -184,15 +358,14 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
                             Texture.WrapMode.CLAMP_TO_EDGE,
                             /*useMipmaps=*/ false);
             // The dfg.raw file is a raw half-float texture with two channels.
-            final int dfgResolution = 64; //해상도
-            final int dfgChannels = 2;  //채널
-            final int halfFloatSize = 2;  //float 크기
+            final int dfgResolution = 64;
+            final int dfgChannels = 2;
+            final int halfFloatSize = 2;
             ByteBuffer buffer =
                     ByteBuffer.allocateDirect(dfgResolution * dfgResolution * dfgChannels * halfFloatSize);
             try (InputStream is = getAssets().open("models/dfg.raw")) {
                 is.read(buffer.array());
             }
-            // SampleRender abstraction leaks here.
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, dfgTexture.getTextureId());
             GLError.maybeThrowGLException("Failed to bind DFG texture", "glBindTexture");
             GLES30.glTexImage2D(
@@ -206,35 +379,20 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
                     GLES30.GL_HALF_FLOAT,
                     buffer);
             GLError.maybeThrowGLException("Failed to populate DFG texture", "glTexImage2D");
-            // Point cloud
-//            pointCloudShader =
-//                    Shader.createFromAssets(
-//                            render, "shaders/point_cloud.vert", "shaders/point_cloud.frag", /*defines=*/ null)
-//                            .setVec4(
-//                                    "u_Color", new float[] {31.0f / 255.0f, 188.0f / 255.0f, 210.0f / 255.0f, 1.0f})
-//                            .setFloat("u_PointSize", 5.0f);
-//            // four entries per vertex: X, Y, Z, confidence
-//            pointCloudVertexBuffer =
-//                    new VertexBuffer(render, /*numberOfEntriesPerVertex=*/ 4, /*entries=*/ null);
-//            final VertexBuffer[] pointCloudVertexBuffers = {pointCloudVertexBuffer};
-//            pointCloudMesh =
-//                    new Mesh(
-//                            render, Mesh.PrimitiveMode.POINTS, /*indexBuffer=*/ null, pointCloudVertexBuffers); // 4/27
 
-            // Virtual object to render (ARCore pawn)
             Texture virtualObjectAlbedoTexture =
                     Texture.createFromAsset(
                             render,
-                            "models/pawn_albedo.png",
+                            "models/ball_color.png",
                             Texture.WrapMode.CLAMP_TO_EDGE,
                             Texture.ColorFormat.SRGB);
             Texture virtualObjectPbrTexture =
                     Texture.createFromAsset(
                             render,
-                            "models/pawn_roughness_metallic_ao.png",
+                            "models/ball_color.png",
                             Texture.WrapMode.CLAMP_TO_EDGE,
                             Texture.ColorFormat.LINEAR);
-            virtualObjectMesh = Mesh.createFromAsset(render, "models/pawn.obj");
+            virtualObjectMesh = Mesh.createFromAsset(render, "models/ball.obj");
             virtualObjectShader =
                     Shader.createFromAssets(
                             render,
@@ -251,8 +409,6 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
                             .setTexture("u_RoughnessMetallicAmbientOcclusionTexture", virtualObjectPbrTexture)
                             .setTexture("u_Cubemap", cubemapFilter.getFilteredCubemapTexture())
                             .setTexture("u_DfgTexture", dfgTexture);
-
-
         } catch (IOException e) {
             //Log.e(TAG, "Failed to read a required asset file", e);
             //messageSnackbarHelper.showError(this, "Failed to read a required asset file: " + e);
@@ -393,9 +549,12 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
             }
         }
 
+        if(FindForm.Mode== FindForm.CUR_MODE.PROGRESS) {
+            finish();
+            return;
+        }
 
-
-        if(FindForm.AR_Mode == FindForm.AR_MODE.SEARCHING||FindForm.AR_Mode == FindForm.AR_MODE.SEARCHED ||FindForm.AR_Mode == FindForm.AR_MODE.SEARCH_FINISH) {
+        if(AR_Mode == FindForm.AR_MODE.SEARCHING|| AR_Mode == FindForm.AR_MODE.SEARCHED || AR_Mode == FindForm.AR_MODE.SEARCH_FINISH) {
             handleTap(frame, camera);
         }
 
@@ -413,7 +572,19 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
             } else {
                 message = TrackingStateHelper.getTrackingFailureReasonString(camera);
             }
+        } else {
+            if(AR_Mode == FindForm.AR_MODE.NONE) {
+                message = "최적화 중입니다. 잠시만 기다려주세요.";
+            } else if(AR_Mode == FindForm.AR_MODE.SEARCHING || AR_Mode == FindForm.AR_MODE.SEARCHED){
+                txt2.setText("오른쪽으로 화면을");
+                txt.setText("천천히 돌려주세요!!");
+            }else if (AR_Mode == FindForm.AR_MODE.FINISH) {
+                txt2.setText("화면에 보이는 AR");
+                txt.setText("방향으로 이동 하세요!!");
+            }
         }
+
+
         if (message == null) {
             messageSnackbarHelper.hide(this);
         } else {
@@ -446,7 +617,7 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
 
         // Visualize anchors created by touch.
         render.clear(virtualSceneFramebuffer, 0f, 0f, 0f, 0f);
-        if(FindForm.AR_Mode == FindForm.AR_MODE.FINISH) {
+        if(AR_Mode == FindForm.AR_MODE.FINISH) {
             for (Anchor anchor : anchors) {
             /*if (anchor.getTrackingState() != TrackingState.TRACKING) { 우리에게 필요한건 트레킹이 아님
                 continue;
@@ -454,8 +625,7 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
 
                 // Get the current pose of an Anchor in world space. The Anchor pose is updated
                 // during calls to session.update() as ARCore refines its estimate of the world.
-                anchor.getPose().toMatrix(modelMatrix, 0);
-
+                anchor.getPose().toMatrix(modelMatrix, 0); 
                 // Calculate model/view/projection matrices
                 Matrix.multiplyMM(modelViewMatrix, 0, viewMatrix, 0, modelMatrix, 0);
                 Matrix.multiplyMM(modelViewProjectionMatrix, 0, projectionMatrix, 0, modelViewMatrix, 0);
@@ -469,19 +639,6 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
         // Compose the virtual scene with the background.
         backgroundRenderer.drawVirtualScene(render, virtualSceneFramebuffer, Z_NEAR, Z_FAR);
 
-        //**프레임 레이아웃을 이용해 위젯 겹치기**//
-
-        /*
-        FrameLayout frameLayout = (FrameLayout) findViewById(R.id.frameLayout);
-        ImageView imageView = new ImageView(this);
-        Glide.with(this).load(R.raw.sample).into(imageView);
-        imageView.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        frameLayout.addView(imageView);
-         */
-        //이미지뷰 숨기기
-        //imageView.setVisibility(View.INVISIBLE);
-        //이미지뷰 제거
-        //frameLayout.removeView(imageView);
 
     }
     private Boolean[] pose = {false,false,false,false,false}; // 0 = -2 1 = -1  2 = 0  3 = 1 4 = 2
@@ -510,16 +667,61 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
                     pose[4]=true;
                     break;
             }
-            if(FindForm.AR_Mode==FindForm.AR_MODE.SEARCH_FINISH) {
+            if(AR_Mode==FindForm.AR_MODE.SEARCH_FINISH) {
+
                 anchors.clear();
+
                 anchors.add(hit.createAnchor());
-                FindForm.AR_Mode=FindForm.AR_MODE.SEARCHING;
+                hitResultList =
+                        frame.hitTestInstantPlacement((float) 300, (float)800,(float) 5.2);
+                anchors.add(hitResultList.get(0).createAnchor());
+                hitResultList =
+                        frame.hitTestInstantPlacement((float) 380, (float)800,(float) 5.2);
+                anchors.add(hitResultList.get(0).createAnchor());
+                hitResultList =
+                        frame.hitTestInstantPlacement((float) 480, (float)800,(float) 5.8);
+                anchors.add(hitResultList.get(0).createAnchor());
+                hitResultList =
+                        frame.hitTestInstantPlacement((float) 580, (float)500,(float) 5.9);
+                anchors.add(hitResultList.get(0).createAnchor());
+                hitResultList =
+                        frame.hitTestInstantPlacement((float) 680, (float)400,(float) 5);
+                anchors.add(hitResultList.get(0).createAnchor());
+                hitResultList =
+                        frame.hitTestInstantPlacement((float) 780, (float)700,(float) 5.5);
+                anchors.add(hitResultList.get(0).createAnchor());
+                hitResultList =
+                        frame.hitTestInstantPlacement((float) 880, (float)800,(float) 5.7);
+                anchors.add(hitResultList.get(0).createAnchor());
+                hitResultList =
+                        frame.hitTestInstantPlacement((float) 980, (float)900,(float) 5.2);
+                anchors.add(hitResultList.get(0).createAnchor());
+                hitResultList =
+                        frame.hitTestInstantPlacement((float) 350, (float)1000,(float)5.5);
+                anchors.add(hitResultList.get(0).createAnchor());
+                hitResultList =
+                        frame.hitTestInstantPlacement((float) 400, (float)1300,(float)5);
+                anchors.add(hitResultList.get(0).createAnchor());
+                hitResultList =
+                        frame.hitTestInstantPlacement((float) 450, (float)1200,(float)6);
+                anchors.add(hitResultList.get(0).createAnchor());
+                hitResultList =
+                        frame.hitTestInstantPlacement((float) 550, (float)700,(float) 5.5);
+                anchors.add(hitResultList.get(0).createAnchor());
+                hitResultList =
+                        frame.hitTestInstantPlacement((float) 650, (float)800,(float)5.8);
+                anchors.add(hitResultList.get(0).createAnchor());
+                hitResultList =
+                        frame.hitTestInstantPlacement((float) 750, (float)900,(float)5);
+                anchors.add(hitResultList.get(0).createAnchor());
+
+                AR_Mode=FindForm.AR_MODE.SEARCHING;
             }
 
             if(pose[0]&&pose[1]&&pose[2]&&pose[3]&&pose[4]
                     &&((int)(hit.createAnchor().getPose().tx()*10)==(int)(ScanAncors.get(0).getPose().tx()*10))) { //&&(hit.createAnchor().getPose().tx()==ScanAncors.get(0).getPose().tx())
                 ScanAncors.clear();
-                FindForm.AR_Mode=FindForm.AR_MODE.FINISH;
+                AR_Mode=FindForm.AR_MODE.FINISH;
             }
         }
     }

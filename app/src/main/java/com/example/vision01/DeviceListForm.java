@@ -60,11 +60,17 @@ public class DeviceListForm extends AppCompatActivity {
 
     public static DeviceListForm dlf;
 
+    Button btn_help;
+
     //private DeviceAdpt.Preview mPreview;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_device_list_form);
+
+        btn_help = findViewById(R.id.btn_help);
+        btn_help.setOnClickListener(onClickListener);
+
         InitializeDevices();
         checkLocationPermissions();
         enableBluetooth();
@@ -375,9 +381,22 @@ public class DeviceListForm extends AppCompatActivity {
         // 정의해야하는 각 알림의 고유한 int값
         notificationManager.notify(1, builder.build());
     }
-    public void getFindForm() {
+    public void getFindForm(String serialNum) {
         this.BTAdapter.cancelDiscovery();
         Intent intent = new Intent(getApplicationContext(), FindForm.class);
+        intent.putExtra("serialNum",serialNum);
         startActivity(intent);
     }
+
+    View.OnClickListener onClickListener = new View.OnClickListener(){
+        @Override
+        public void onClick(View view){
+            switch (view.getId()){
+                case R.id.btn_help:
+                    Intent intent = new Intent(DeviceListForm.this, HelpForm.class);
+                    startActivity(intent);
+                    finish();
+            }
+        }
+    };
 }

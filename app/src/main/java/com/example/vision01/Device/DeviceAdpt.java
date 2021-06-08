@@ -79,7 +79,7 @@ public class DeviceAdpt extends BaseAdapter {
                         Toast.LENGTH_SHORT).show();
                 boolean flag = ((DeviceListForm)DeviceListForm.mContext).ConfirmState(selectedDevice);
                 if(flag)
-                    DeviceListForm.dlf.getFindForm();
+                    DeviceListForm.dlf.getFindForm(getItem(position).getSerialNum());
             }
         });
         // 체크 이벤트
