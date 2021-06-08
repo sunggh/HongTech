@@ -332,6 +332,7 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
                 }
             }
         });
+        glview.setVisibility(View.INVISIBLE);
     }
 
 

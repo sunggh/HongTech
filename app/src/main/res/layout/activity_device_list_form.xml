@@ -61,7 +61,7 @@
                 android:layout_height="70dp"
                 android:scaleType="fitCenter"
                 android:background="@color/white"
-                android:src="@drawable/qnaImage" />
+                android:src="@drawable/qna1" />
 
             <ListView
                 android:id="@+id/listView"

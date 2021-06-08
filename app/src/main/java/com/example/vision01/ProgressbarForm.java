@@ -50,6 +50,7 @@ public class ProgressbarForm extends AppCompatActivity implements CircleProgress
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
                         FindForm.findForm.StopScan();
+                        FindForm.findForm.finish();
                         Intent intent = new Intent(getApplicationContext(), DeviceListForm.class);
                         startActivity(intent);
                     }
@@ -58,6 +59,7 @@ public class ProgressbarForm extends AppCompatActivity implements CircleProgress
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
                         FindForm.findForm.StopScan();
+                        FindForm.findForm.finish();
                         Intent intent = new Intent(getApplicationContext(), FindForm.class);
                         startActivity(intent);
                     }
