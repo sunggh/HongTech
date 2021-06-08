@@ -24,6 +24,8 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -42,6 +44,10 @@ public class DeviceListForm extends AppCompatActivity {
     ArrayList<Device> devices;
     ListView lvDeviceList;
     TextView textState;
+
+    //----//
+    ImageButton buttonQnA;
+    //----//
 
     DeviceAdpt deviceAdpt;
     Device selectedDevice; //선택된 제품 (삭제하거나 rssi 찾을 때 사용)
@@ -65,6 +71,16 @@ public class DeviceListForm extends AppCompatActivity {
         dlf=this;
         initControl();
 
+        //----//
+        buttonQnA = findViewById(R.id.imageButtonQnA);
+        //manifests 파일에 액티비티 추가해야함
+        buttonQnA.setOnClickListener(view -> {
+            Intent intent = new Intent(this, QnAForm.class);
+            startActivity(intent);
+        });
+
+
+        //----//
 
         mContext = this;
     }

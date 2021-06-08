@@ -220,6 +220,7 @@ public class LoginForm extends AppCompatActivity {
             }
         }
     };
+
     public void dataFileCopy(){
         try{
             AssetManager assetMgr = this.getAssets();

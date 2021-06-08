@@ -17,6 +17,10 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.util.Log;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import com.example.vision01.common.helpers.CameraPermissionHelper;
@@ -180,9 +184,9 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
                             Texture.WrapMode.CLAMP_TO_EDGE,
                             /*useMipmaps=*/ false);
             // The dfg.raw file is a raw half-float texture with two channels.
-            final int dfgResolution = 64;
-            final int dfgChannels = 2;
-            final int halfFloatSize = 2;
+            final int dfgResolution = 64; //해상도
+            final int dfgChannels = 2;  //채널
+            final int halfFloatSize = 2;  //float 크기
             ByteBuffer buffer =
                     ByteBuffer.allocateDirect(dfgResolution * dfgResolution * dfgChannels * halfFloatSize);
             try (InputStream is = getAssets().open("models/dfg.raw")) {
@@ -247,6 +251,8 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
                             .setTexture("u_RoughnessMetallicAmbientOcclusionTexture", virtualObjectPbrTexture)
                             .setTexture("u_Cubemap", cubemapFilter.getFilteredCubemapTexture())
                             .setTexture("u_DfgTexture", dfgTexture);
+
+
         } catch (IOException e) {
             //Log.e(TAG, "Failed to read a required asset file", e);
             //messageSnackbarHelper.showError(this, "Failed to read a required asset file: " + e);
@@ -462,6 +468,21 @@ public class ARCamera extends AppCompatActivity implements RenderingHelper.Rende
         }
         // Compose the virtual scene with the background.
         backgroundRenderer.drawVirtualScene(render, virtualSceneFramebuffer, Z_NEAR, Z_FAR);
+
+        //**프레임 레이아웃을 이용해 위젯 겹치기**//
+
+        /*
+        FrameLayout frameLayout = (FrameLayout) findViewById(R.id.frameLayout);
+        ImageView imageView = new ImageView(this);
+        Glide.with(this).load(R.raw.sample).into(imageView);
+        imageView.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        frameLayout.addView(imageView);
+         */
+        //이미지뷰 숨기기
+        //imageView.setVisibility(View.INVISIBLE);
+        //이미지뷰 제거
+        //frameLayout.removeView(imageView);
+
     }
     private Boolean[] pose = {false,false,false,false,false}; // 0 = -2 1 = -1  2 = 0  3 = 1 4 = 2
     // Handle only one tap per frame, as taps are usually low frequency compared to frame rate.
