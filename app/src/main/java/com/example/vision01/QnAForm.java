@@ -12,7 +12,6 @@ public class QnAForm extends AppCompatActivity {
 
     ImageButton buttonClose;
     TextView textViewEmail;
-    String Email;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -22,10 +21,6 @@ public class QnAForm extends AppCompatActivity {
         textViewEmail.findViewById(R.id.textViewQnA_Email);
         buttonClose.findViewById(R.id.imageButtonClose);
 
-        //Email = "abc12345@gmail.com";
-        //textViewEmail.setText(Email);
-
-        // <- 버튼 클릭시
         buttonClose.setOnClickListener(view -> {
             finish();
         });

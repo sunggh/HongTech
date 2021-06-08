@@ -45,10 +45,6 @@ public class DeviceListForm extends AppCompatActivity {
     ListView lvDeviceList;
     TextView textState;
 
-    //----//
-    ImageButton buttonQnA;
-    //----//
-
     DeviceAdpt deviceAdpt;
     Device selectedDevice; //선택된 제품 (삭제하거나 rssi 찾을 때 사용)
     int stateFlag = 0;  //0 ->찾기 1 -> 추가 2 -> 수정 3-> 삭제
@@ -61,6 +57,7 @@ public class DeviceListForm extends AppCompatActivity {
     public static DeviceListForm dlf;
 
     Button btn_help;
+    ImageButton btn_qna;
 
     //private DeviceAdpt.Preview mPreview;
     @Override
@@ -71,22 +68,18 @@ public class DeviceListForm extends AppCompatActivity {
         btn_help = findViewById(R.id.btn_help);
         btn_help.setOnClickListener(onClickListener);
 
+        btn_qna = findViewById(R.id.imageButtonQnA);
+        btn_qna.setOnClickListener(view -> {
+            Intent intent = new Intent(this, QnAForm.class);
+            startActivity(intent);
+        });
+
         InitializeDevices();
         checkLocationPermissions();
         enableBluetooth();
         dlf=this;
         initControl();
 
-        //----//
-        buttonQnA = findViewById(R.id.imageButtonQnA);
-        //manifests 파일에 액티비티 추가해야함
-        buttonQnA.setOnClickListener(view -> {
-            Intent intent = new Intent(this, QnAForm.class);
-            startActivity(intent);
-        });
-
-
-        //----//
 
         mContext = this;
     }

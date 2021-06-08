@@ -57,6 +57,7 @@
         <activity android:name=".HelpForm"
             android:label="@string/title_activity_help"
             android:theme="@style/Theme.Vision01.NoActionBar"/>
+        <activity android:name=".QnAForm"/>
 
         <meta-data
             android:name="com.google.ar.core"
